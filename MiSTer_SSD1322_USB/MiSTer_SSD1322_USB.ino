@@ -2,12 +2,13 @@
   By Venice
   Get CORENAME from MiSTer via USB-Serial-TTY Device and show CORENAME related text, Pictures or Logos
   Using forked Adafruit SSD1327 Library https://github.com/adafruit/Adafruit_SSD1327 for the SSD1322
+  Using Adafruit_ST7789 Library for the ST7789 240x240
 
   -- G R A Y S C A L E  E D I T I O N --
 
   Needed libraries for the Arduino program:
   - Adafruit GFX (*)
-  - U8G2 for Adafruit GFX (*)
+  - U8G2 for Adafruit GFX (*) - for the SSD1322
   - Bounce2 (*) optional, needed for the tilt-sensor
   - ESP32Time (*) needed for all ESP32 Boards 
   - MIC184 needed for the MIC145 sensor on d.ti's boards, get it from: https://github.com/venice1200/MIC184_Temperature_Sensor/releases
@@ -40,14 +41,12 @@
 */
 
 // Set Version
-#define BuildVersion "230702"                    // "T" for Testing
+//#define BuildVersion "230702"                    // "T" for Testing
+#define BuildVersion "240907"                    // "T" for Testing
 
 // Include Libraries
 #include <Arduino.h>
-#include <SSD1322_for_Adafruit_GFX.h>             // SSD1322 Controller Display Library https://github.com/venice1200/SSD1322_for_Adafruit_GFX
-#include <U8g2_for_Adafruit_GFX.h>                // U8G2 Font Engine for Adafruit GFX  https://github.com/olikraus/U8g2_for_Adafruit_GFX
 #include "bitmaps.h"                              // Some needed pictures
-#include "fonts.h"                                // Some needed fonts
 
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -63,6 +62,10 @@
 
 // Uncomment for 180° StartUp Rotation (Display Connector up)
 //#define XROTATE
+
+// Screen SSD1322 or ST7789
+//#define XSSD1322
+#define XST7789
 
 // ---------------------------------------------------------------------------------------------------------------------
 // ---------------------------------- Auto-Board-Config via Arduino IDE Board Selection --------------------------------
@@ -92,7 +95,7 @@
 
 //#define USE_ESP32S3DEV         // ESP32-S3-DevKitC-1
 //#define USE_ESP32DEV           // TTGO-T8. Set Arduino Board to ESP32 Dev Module, xx MB Flash, def. Part. Schema
-//#define USE_LOLIN32            // Wemos LOLIN32, LOLIN32, DevKit_V4. Set Arduino Board to "WEMOS LOLIN32"
+#define USE_LOLIN32            // Wemos LOLIN32, LOLIN32, DevKit_V4. Set Arduino Board to "WEMOS LOLIN32"
 //#define USE_NODEMCU            // ESP8266 NodeMCU v3. Set Arduino Board to NodeMCU 1.0 (ESP-12E Module)
 
 
@@ -106,6 +109,23 @@
 
 #if defined(USE_ESP32DEV) || defined(USE_ESP32S3DEV)
   #define USE_ESP32XDEV
+#endif
+
+// ---------------------------------------------------------------------------------------------------------------------
+// -------------------------------------------------- Conditional dependencies --------------------------------------------------
+// ---------------------------------------------------------------------------------------------------------------------
+
+#ifdef XSSD1322
+#include <SSD1322_for_Adafruit_GFX.h>             // SSD1322 Controller Display Library https://github.com/venice1200/SSD1322_for_Adafruit_GFX
+#include <U8g2_for_Adafruit_GFX.h>                // U8G2 Font Engine for Adafruit GFX  https://github.com/olikraus/U8g2_for_Adafruit_GFX
+#include "fonts.h"                                // Some needed fonts
+#endif
+
+#ifdef XST7789
+#include <Adafruit_GFX.h>    // Core graphics library
+#include <Adafruit_ST7789.h> // Hardware-specific library for ST7789
+#include <SPI.h>             // Arduino SPI library
+#include <Wire.h>
 #endif
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -172,10 +192,21 @@
 // WEMOS LOLIN32/Devkit_V4 using VSPI SCLK = 18, MISO = 19, MOSI = 23, SS = 5 and...
 #ifdef USE_LOLIN32
   int cDelay = 60;                 // Command Delay in ms for ACK-Handshake
+  /*
   #define OLED_CS 5
   #define OLED_DC 16
-  #define OLED_RESET 17
+  #define OLED_RESET 17*/
   #define TILT_PIN 32
+  
+// ST7789 TFT module connections
+/* Arduino Nano
+#define OLED_CS    10  // define chip select pin
+#define OLED_DC     9  // define data/command pin
+#define OLED_RESET    8  // define reset pin, or set to -1 and connect to Arduino RESET pin*/
+#define OLED_CS    26  // define chip select pin
+#define OLED_DC    25  // define data/command pin
+#define OLED_RESET   27  // define reset pin, or set to -1 and connect to Arduino RESET pin
+
 #endif
 
 // ESP8266-Board (NodeMCU v3)
@@ -188,14 +219,27 @@
   //#define TILT_PIN 16
 #endif
 
-// Create OLED Object
-#ifdef USE_ESP32S3DEV
-Adafruit_SSD1322 oled(256, 64, &OLED_SPI, OLED_DC, OLED_RESET, OLED_CS);
-#else
-// Hardware Constructor OLED Display and U8G2 Support
-Adafruit_SSD1322 oled(256, 64, &SPI, OLED_DC, OLED_RESET, OLED_CS);
+#if defined(XSSD1322) && defined(USE_ESP32S3DEV)
+  // Create OLED Object
+  Adafruit_SSD1322 oled(256, 64, &OLED_SPI, OLED_DC, OLED_RESET, OLED_CS);
 #endif
-U8G2_FOR_ADAFRUIT_GFX u8g2;
+#if defined(XSSD1322) && ! defined(USE_ESP32S3DEV)
+  // Hardware Constructor OLED Display and U8G2 Support
+  Adafruit_SSD1322 oled(256, 64, &SPI, OLED_DC, OLED_RESET, OLED_CS);
+#endif
+#if defined(XSSD1322)
+  U8G2_FOR_ADAFRUIT_GFX u8g2;
+  #define OLED_WHITE SSD1322_WHITE
+  #define OLED_BLACK SSD1322_BLACK
+#endif
+
+
+#if defined(XST7789)
+  // Initialize Adafruit ST7789 TFT library
+  Adafruit_ST7789 oled = Adafruit_ST7789(OLED_CS, OLED_DC, OLED_RESET);
+  #define OLED_WHITE ST77XX_WHITE
+  #define OLED_BLACK ST77XX_BLACK
+#endif
 
 // Tilt Sensor
 #include <Bounce2.h>                     // << Extra Library, via Arduino Library Manager
@@ -273,6 +317,9 @@ const int ScreenSaverMaxScreens=3;           // Max ScreenSavers ESP8266 => 3 (b
 #endif
 #ifdef ESP32X
 const int ScreenSaverMaxScreens=5;           // Max ScreenSavers ESP32 => 5 (bit)
+#endif
+#if defined(USE_LOLIN32) && ! defined(ESP32X)
+const int ScreenSaverMaxScreens=1;           // Max ScreenSavers Arduino => 1 (bit)
 #endif
 int ScreenSaverActiveScreens[ScreenSaverMaxScreens]; // Array contains Pointer to Active ScreeenSavers (1=tty2oled,2=MiSTer,3=Core,4=Time,5=Date)
 int ScreenSaverCountScreens=0;               // How many ScreenSaver Screens are Active?
@@ -366,6 +413,16 @@ void oled_drawScreenSaverStarField(void);
 void oled_drawScreenSaverToaster(void);
 void oled_readnsetedtiv(void);
 void oled_setttyack(void);
+void oled_cleardisplay(void);
+void oled_display(void);
+void oled_setcursor(int16_t, int16_t);
+void oled_settextcolor(int16_t, int16_t);
+void oled_setcontrast(uint8_t);
+void oled_printtext(String);
+void oled_printftext(String);
+int16_t oled_getUTF8Width(const char *);
+int8_t oled_getFontAscent(void);
+void oled_drawgreyscale(const uint8_t);
 
 // Info about overloading found here
 // https://stackoverflow.com/questions/1880866/can-i-set-a-default-argument-from-a-previous-argument
@@ -395,13 +452,14 @@ void setup(void) {
   OLED_SPI.begin(OLED_SCLK, OLED_MISO, OLED_MOSI, OLED_CS);
 #endif
 
+#if defined(XSSD1322)
   // Init Display SSD1322
   oled.begin();
-  oled.clearDisplay();
+  oled_cleardisplay();
   oled.setRotation(0);
-  oled.setContrast(contrast);                       // Set contrast of display
+  oled_setcontrast(contrast);                       // Set contrast of display
   oled.setTextSize(1);
-  oled.setTextColor(SSD1322_WHITE, SSD1322_BLACK);  // White foreground, black background
+  oled.setTextColor(OLED_WHITE, OLED_BLACK);  // White foreground, black background
   //oled.setFont(&FreeSans9pt7b);                   // Set Standard Font (available in 9/12/18/24 Pixel)
   oled.cp437(true);                                 // Enable Code Page 437-compatible charset (bugfix)
 
@@ -409,8 +467,19 @@ void setup(void) {
   u8g2.begin(oled); 
   // u8g2.setFontMode(1);                             // Transparent Font Mode, Background is transparent
   u8g2.setFontMode(0);                               // Non-Transparent Font Mode, Background is overwritten (u8g2 default)
-  u8g2.setForegroundColor(SSD1322_WHITE);            // apply Adafruit GFX color
-  //u8g2.setBackgroundColor(SSD1322_BLACK);
+  /*u8g2.setForegroundColor(SSD1322_WHITE);            // apply Adafruit GFX color
+  //u8g2.setBackgroundColor(SSD1322_BLACK);*/
+  oled_settextcolor(OLED_WHITE, -1);
+#endif
+
+#if defined(XST7789)
+  // Init ST7789 display 240x240 pixel
+  oled.init(240, 240, SPI_MODE0);
+  oled_cleardisplay();
+  oled.setCursor(0, 0);
+  oled.setTextColor(ST77XX_WHITE);
+  oled.setTextWrap(true);
+#endif
 
    // Get Display Dimensions
   DispWidth = oled.width();
@@ -420,6 +489,21 @@ void setup(void) {
   logoBytes1bpp = DispWidth * DispHeight / 8;              // SSD1322 = 2048 Bytes
   logoBytes4bpp = DispWidth * DispHeight / 2;              // SSD1322 = 8192 Bytes
   //logoBin = (uint8_t *) malloc(logoBytes4bpp);             // Create Picture Buffer, better than permanent create (malloc) and destroy (free)
+
+#if defined(XST7789)
+//TODO: do better...
+  DispWidth = 256;
+  DispHeight = 64;
+  DispLineBytes1bpp = DispWidth / 8;
+  DispLineBytes4bpp = DispWidth / 2;
+  logoBytes1bpp = 2048;
+  logoBytes4bpp = 8192;
+#endif
+
+#ifdef XDEBUG
+  Serial.printf("setup: DispWidth=%i DispHeight=%i\n", DispWidth, DispHeight);
+#endif  // XDEBUG
+
 
 // === Activate Options ===
 
@@ -441,19 +525,19 @@ void setup(void) {
   //tSensor.setZone(MIC184_ZONE_REMOTE);                         // Remote = use External Sensor using LM3906/MMBT3906
 #ifdef XDEBUG
   if (hasMIC) {
-    Serial.println("MIC184 Sensor available.");
-    Serial.print("Temperature: ");
+    Serial.println(F("MIC184 Sensor available."));
+    Serial.print(F("Temperature: "));
     Serial.print(tSensor.getTemp());
-    Serial.println("°C");
+    Serial.println(F("°C"));
   }
   else {
-    Serial.println("MIC184 Sensor not available.");
+    Serial.println(F("MIC184 Sensor not available."));
   }
 #endif  // XDEBUG
 
 // PCA9536 handling
 #ifdef XDEBUG
-  Serial.println("Enable PCA");
+  Serial.println(F("Enable PCA"));
 #endif  // XDEBUG
   digitalWrite(PCA_POWER,0);                                     // Pre-Set Pin
   pinMode(PCA_POWER, OUTPUT);                                    // Set Mode for PCA_POWER Pin
@@ -467,10 +551,10 @@ void setup(void) {
   }
 #ifdef XDEBUG
   if (hasPCA) {
-    Serial.println("PCA available.");
+    Serial.println(F("PCA available."));
   }
   else {
-    Serial.println("PCA not available.");
+    Serial.println(F("PCA not available."));
   }
 #endif  // XDEBUG
 
@@ -490,13 +574,13 @@ void setup(void) {
       else {
         while (Wire.available()) Wire.read();                   // If more byte are available = something wrong
 #ifdef XDEBUG
-       Serial.println("PCA Error, too much bytes!");
+       Serial.println(F("PCA Error, too much bytes!"));
 #endif  // XDEBUG
       }
     }
   }
 #ifdef XDEBUG
-  Serial.println("Disable PCA");
+  Serial.println(F("Disable PCA"));
 #endif  // XDEBUG
   digitalWrite(PCA_POWER,0);                                     // Switch PCA off
 
@@ -510,12 +594,14 @@ void setup(void) {
     prefs.putUChar("dtiv", dtiv);                                // Write Value to Preferences Namespace
     prefs.end();                                                 // Close the Preferences
     if (dtiv>10) {
-      u8g2.setFont(u8g2_font_5x7_mf);                            // 6 Pixel Font
-      u8g2.setCursor(0,63);
-      u8g2.printf("d.ti Board v%.1f detected.", (float)dtiv/10);    
-      oled.display();
+      //u8g2.setFont(u8g2_font_5x7_mf);                            // 6 Pixel Font
+      oled_setfont(0);
+      oled_setcursor(0,63);
+      //u8g2.printf("d.ti Board v%.1f detected.", (float)dtiv/10);    
+      oled_printftext("d.ti Board v%.1f detected.", (float)dtiv/10);
+      oled_display();
       delay(4000);
-      oled.clearDisplay();
+      oled_cleardisplay();
     }
 #ifdef XDEBUG
     Serial.printf("Writing DTIV to Preferences: %i\n", dtiv);
@@ -575,7 +661,7 @@ void setup(void) {
   oled_showStartScreen();                                  // OLED Startup
 
   delay(cDelay);                                           // Command Response Delay
-  Serial.print("ttyrdy;");                                 // Send "ttyrdy;" after setup is done.
+  Serial.print(F("ttyrdy;"));                                 // Send "ttyrdy;" after setup is done.
   //Serial.println("ttyrdy;");                             // Send "ttyrdy;" with "\n" after setup is done.
 }
 
@@ -589,7 +675,7 @@ void loop(void) {
   RotationDebouncer.update();                                     // Update the Bounce instance
   if (RotationDebouncer.rose()) {
 #ifdef XDEBUG
-    Serial.println("Tilt Rose...");
+    Serial.println(F("Tilt Rose..."));
 #endif
     oled.setRotation(0);
     if (actCorename.startsWith("No Core")) {
@@ -601,7 +687,7 @@ void loop(void) {
   }
   if (RotationDebouncer.fell()) {
 #ifdef XDEBUG
-    Serial.println("Tilt Fell...");
+    Serial.println(F("Tilt Fell..."));
 #endif
     oled.setRotation(2);
     if (actCorename.startsWith("No Core")) {
@@ -673,8 +759,8 @@ void loop(void) {
     }
 
     else if (newCommand=="cls") {                                        // Clear Screen
-      oled.clearDisplay();
-      oled.display();
+      oled_cleardisplay();
+      oled_display();
     }
     
     else if (newCommand=="sorg") {                                       // Start Screen
@@ -686,12 +772,12 @@ void loop(void) {
     }
     
     else if (newCommand=="CMDCLS") {                                        // Clear Screen with Display Update
-      oled.clearDisplay();
-      oled.display();
+      oled_cleardisplay();
+      oled_display();
     }
     
     else if (newCommand=="CMDCLSWU") {                                      // Clear Screen without Display Update
-      oled.clearDisplay();
+      oled_cleardisplay();
     }
 
     else if (newCommand.startsWith("CMDCLST")) {                            // Clear/Fill Screen with Transition and Color
@@ -864,7 +950,7 @@ void loop(void) {
 
     if (sendTTYACK) {                                 // Send ACK?
       delay(cDelay);                                    // Command Response Delay
-      Serial.print("ttyack;");                        // Handshake with delimiter; MiSTer: "read -d ";" ttyresponse < ${TTYDEVICE}"
+      Serial.print(F("ttyack;"));                        // Handshake with delimiter; MiSTer: "read -d ";" ttyresponse < ${TTYDEVICE}"
     }
     // Serial.flush();                                // Wait for sendbuffer is clear
 
@@ -915,16 +1001,16 @@ void oled_showStartScreen(void) {
   uint8_t color = 0;
 
 #ifdef XDEBUG
-  Serial.println("Show Startscreen");
+  Serial.println(F("Show Startscreen"));
 #endif
-  oled.clearDisplay();
-  oled.drawXBitmap(82, 0, tty2oled_logo, tty2oled_logo_width, tty2oled_logo_height, SSD1322_WHITE);
-  oled.display();
+  oled_cleardisplay();
+  oled.drawXBitmap(82, 0, tty2oled_logo, tty2oled_logo_width, tty2oled_logo_height, OLED_WHITE);
+  oled_display();
   delay(1000);
   for (int i=0; i<DispWidth; i+=16) {            // Some Animation
     oled.fillRect(i,55,16,8,color);
     color++;
-    oled.display();
+    oled_display();
 #ifdef USE_ESP32XDEV
     if (dtiv>=12) {                              // Let the RGB LED light up
       wsleds[0] = CHSV(i,255,255);
@@ -934,8 +1020,8 @@ void oled_showStartScreen(void) {
     delay(20);
   }
   for (int i=0; i<DispWidth; i+=16) {            // Remove Animation Line
-    oled.fillRect(i,55,16,8,SSD1322_BLACK);
-    oled.display();
+    oled.fillRect(i,55,16,8,OLED_BLACK);
+    oled_display();
 #ifdef USE_ESP32XDEV
     if (dtiv>=12) {                              // Let the RGB LED light up
       wsleds[0] = CHSV(255-i,255,255);
@@ -952,27 +1038,28 @@ void oled_showStartScreen(void) {
   }
 #endif
   delay(500);
-  u8g2.setFont(u8g2_font_5x7_mf);               // 6 Pixel Font
-  u8g2.setCursor(0,63);
-  u8g2.print(BuildVersion);
+  //u8g2.setFont(u8g2_font_5x7_mf);               // 6 Pixel Font
+  oled_setfont(0);
+  oled_setcursor(0,63);
+  oled_printtext(BuildVersion);
   if (runsTesting) {
-    if (hasMIC) u8g2.print("M");
-    if (hasPCA) u8g2.print("P");
-    if (dtiv>10) u8g2.print(dtiv);
-    if (usePREFS) u8g2.print("E");
-    oled.drawXBitmap(DispWidth-usb_icon_width, DispHeight-usb_icon_height, usb_icon, usb_icon_width, usb_icon_height, SSD1322_WHITE);
+    if (hasMIC) oled_printtext("M");
+    if (hasPCA) oled_printtext("P");
+    if (dtiv>10) oled_printtext(dtiv);
+    if (usePREFS) oled_printtext("E");
+    oled.drawXBitmap(DispWidth-usb_icon_width, DispHeight-usb_icon_height, usb_icon, usb_icon_width, usb_icon_height, OLED_WHITE);
   }
 
 #ifdef USE_ESP32XDEV
   if (hasMIC) {
-    u8g2.setCursor(111,63);
-    u8g2.print(tSensor.getTemp());    // Show Temperature if Sensor available
-    u8g2.print("\xb0");
-    u8g2.print("C");
+    oled_setcursor(111,63);
+    oled_printtext(tSensor.getTemp());    // Show Temperature if Sensor available
+    oled_printtext("\xb0");
+    oled_printtext("C");
   }
 #endif
 
-  oled.display();
+  oled_display();
   startScreenActive=true;
 } // end mistertext
 
@@ -984,7 +1071,7 @@ void oled_setttyack(void) {
   String xT="";
   int x;
 #ifdef XDEBUG
-  Serial.println("Called Command CMDSTTYACK");
+  Serial.println(F("Called Command CMDSTTYACK"));
 #endif
   xT=newCommand.substring(newCommand.indexOf(',')+1);
 #ifdef XDEBUG
@@ -1011,7 +1098,7 @@ void oled_setTime(void) {
   String tT="";
   
 #ifdef XDEBUG
-  Serial.println("Called Command CMDSETTIME");
+  Serial.println(F("Called Command CMDSETTIME"));
 #endif
 
   tT=newCommand.substring(newCommand.indexOf(',')+1);             // Get Command Parameter out of the string
@@ -1034,7 +1121,7 @@ void oled_setTime(void) {
 void oled_setcdelay(void) {
   String dT="";
 #ifdef XDEBUG
-  Serial.println("Called Command CMDSECD");
+  Serial.println(F("Called Command CMDSECD"));
 #endif
   
   dT=newCommand.substring(8);           // CMD-Length+1
@@ -1054,15 +1141,16 @@ void oled_setcdelay(void) {
 // --------------------------------------------------------------
 void oled_showcdelay(void) {
 #ifdef XDEBUG
-  Serial.println("Called Command CMDSHCD");
+  Serial.println(F("Called Command CMDSHCD"));
 #endif
   
-  oled.clearDisplay();
-  u8g2.setFont(u8g2_font_tenfatguys_tr);
-  u8g2.setCursor(20,32);
-  u8g2.print("cDelay: ");
-  u8g2.print(cDelay);
-  oled.display();
+  oled_cleardisplay();
+  //u8g2.setFont(u8g2_font_tenfatguys_tr);
+  oled_setfont(7);
+  oled_setcursor(20,32);
+  oled_printtext("cDelay: ");
+  oled_printtext(cDelay);
+  oled_display();
 }
 
 
@@ -1073,7 +1161,7 @@ void oled_switchscreensaver(void) {
   String xT="";
   int x;
 #ifdef XDEBUG
-  Serial.println("Called Command CMDSWSAVER");
+  Serial.println(F("Called Command CMDSWSAVER"));
 #endif
   xT=newCommand.substring(newCommand.indexOf(',')+1);
 #ifdef XDEBUG
@@ -1086,7 +1174,7 @@ void oled_switchscreensaver(void) {
 
   if (x==0) {
 #ifdef XDEBUG
-    Serial.println("Switch ScreenSaver off.");
+    Serial.println(F("Switch ScreenSaver off."));
 #endif
     ScreenSaverEnabled = false;
     ScreenSaverTimer=0;                       // Reset Screensaver-Timer
@@ -1104,7 +1192,7 @@ void oled_switchscreensaver(void) {
     }
     else {
 #ifdef XDEBUG
-      Serial.println("ScreenSaver unset!");
+      Serial.println(F("ScreenSaver unset!"));
 #endif
     }
   }  //endif
@@ -1118,7 +1206,7 @@ void oled_readnsetscreensaver(void) {
   String TextIn="",mT="",iT="",lT="";
   int d1,d2,m,i,l,b;
 #ifdef XDEBUG
-  Serial.println("Called Command CMDSAVER");
+  Serial.println(F("Called Command CMDSAVER"));
 #endif
   TextIn=newCommand.substring(9);
 #ifdef XDEBUG
@@ -1164,7 +1252,7 @@ void oled_readnsetscreensaver(void) {
   for (b=0; b<ScreenSaverMaxScreens; b++) {
     Serial.printf("ScreenSaver Array Value No.%i: %i\n", b, ScreenSaverActiveScreens[b]);
   }
-  if (ShowScreenSaverStarField) Serial.printf("ScreenSaver StarField active!\n");
+  if (ShowScreenSaverStarField) Serial.println(F("ScreenSaver StarField active!\n"));
 #endif
   
 #ifdef XDEBUG
@@ -1178,13 +1266,13 @@ void oled_readnsetscreensaver(void) {
 
   if (m==0) {
 #ifdef XDEBUG
-    Serial.println("ScreenSaver Disabled!");
+    Serial.println(F("ScreenSaver Disabled!"));
 #endif
     ScreenSaverEnabled=false;
   }
   else{
 #ifdef XDEBUG
-    Serial.println("ScreenSaver Enabled!");
+    Serial.println(F("ScreenSaver Enabled!"));
 #endif
     ScreenSaverEnabled=true;
     ScreenSaverInterval=i;                    // Set ScreenSaverTimer Interval
@@ -1209,7 +1297,7 @@ void oled_readnsetscreensaver(void) {
 void oled_showScreenSaverPicture(void) {
   int l,x,y;
   String actTime="";
-  oled.setContrast(ScreenSaverContrast);                        // Set Contrast for ScreenSaver Mode
+  oled_setcontrast(ScreenSaverContrast);                        // Set Contrast for ScreenSaver Mode
 
   l=ScreenSaverActiveScreens[random(ScreenSaverCountScreens)];  // Get random Screen out of the Active-Screens-Array[0..x]
 #ifdef XDEBUG
@@ -1218,18 +1306,18 @@ void oled_showScreenSaverPicture(void) {
 
   switch (l) {
     case 1:                                             // Show tiny tty2oled Logo
-      oled.clearDisplay();
+      oled_cleardisplay();
       x=random(DispWidth - tty2oled_logo32_width);
       y=random(DispHeight - tty2oled_logo32_height);
-      oled.drawXBitmap(x, y, tty2oled_logo32, tty2oled_logo32_width, tty2oled_logo32_height, SSD1322_WHITE);
-      oled.display();
+      oled.drawXBitmap(x, y, tty2oled_logo32, tty2oled_logo32_width, tty2oled_logo32_height, OLED_WHITE);
+      oled_display();
     break;
     case 2:                                             // Show tiny MiSTer Logo
-      oled.clearDisplay();
+      oled_cleardisplay();
       x=random(DispWidth - mister_logo32_width);
       y=random(DispHeight - mister_logo32_height);
-      oled.drawXBitmap(x, y, mister_logo32, mister_logo32_width, mister_logo32_height, SSD1322_WHITE);
-      oled.display();
+      oled.drawXBitmap(x, y, mister_logo32, mister_logo32_width, mister_logo32_height, OLED_WHITE);
+      oled_display();
     break;
     case 3:                                             // Show 1/4 Version of the actual Core
       x=random(DispWidth - DispWidth/2);
@@ -1238,46 +1326,70 @@ void oled_showScreenSaverPicture(void) {
     break;
 #ifdef ESP32X
     case 4:                                             // Show Time for ESP32
-      oled.clearDisplay();
+      oled_cleardisplay();
       if (timeIsSet) {
-        u8g2.setFont(u8g2_font_luBS24_tf);
+        //u8g2.setFont(u8g2_font_luBS24_tf);
+        oled_setfont(5);
         actTime=rtc.getTime("%H:%M");
-        x=random(DispWidth - u8g2.getUTF8Width(actTime.c_str()));
-        y=random(u8g2.getFontAscent(), DispHeight);
-        u8g2.setCursor(x,y);
-        u8g2.print(actTime);
+        x=random(DispWidth - oled_getUTF8Width(actTime.c_str()));
+        y=random(oled_getFontAscent(), DispHeight);
+        oled_setcursor(x,y);
+        oled_printtext(actTime);
       }
       else {
         oled_showcenterredtext("Time not set!",9);
       }
-      oled.display();
+      oled_display();
     break;
     case 5:                                            // Show Date for ESP32
-      oled.clearDisplay();
+      oled_cleardisplay();
       if (timeIsSet) {
-        u8g2.setFont(u8g2_font_luBS14_tf);
+        //u8g2.setFont(u8g2_font_luBS14_tf);
+        oled_setfont(3);
         actTime=rtc.getTime("%d-%b-%y");
-        x=random(DispWidth - u8g2.getUTF8Width(actTime.c_str()));
-        y=random(u8g2.getFontAscent(), DispHeight);
-        u8g2.setCursor(x,y);
-        u8g2.print(actTime);
+        x=random(DispWidth - oled_getUTF8Width(actTime.c_str()));
+        y=random(oled_getFontAscent(), DispHeight);
+        oled_setcursor(x,y);
+        oled_printtext(actTime);
       }
       else {
         oled_showcenterredtext("Date not set!",9);
       }
-      oled.display();
+      oled_display();
     break;
 #endif
     default:
-      oled.clearDisplay();
+      oled_cleardisplay();
       x=random(DispWidth - tty2oled_logo32_width);
       y=random(DispHeight - tty2oled_logo32_height);
-      oled.drawXBitmap(x, y, tty2oled_logo32, tty2oled_logo32_width, tty2oled_logo32_height, SSD1322_WHITE);
-      oled.display();
+      oled.drawXBitmap(x, y, tty2oled_logo32, tty2oled_logo32_width, tty2oled_logo32_height, OLED_WHITE);
+      oled_display();
     break;
   } //end switch
 }
 
+
+// --------------------------------------------------------------
+// -------------------- Clear screen ----------------------
+// --------------------------------------------------------------
+void oled_cleardisplay(void) {
+#ifdef XSSD1322
+  oled.clearDisplay();
+#endif
+
+#ifdef XST7789
+  oled.fillScreen(ST77XX_BLACK);
+#endif
+}
+
+// --------------------------------------------------------------
+// -------------------- Display screen ----------------------
+// --------------------------------------------------------------
+void oled_display(void) {
+#ifdef XSSD1322
+  oled_display();
+#endif
+}
 
 // --------------------------------------------------------------
 // ------------- Show 1/4 Core Picture at Position V2 -----------
@@ -1291,7 +1403,7 @@ void oled_showSmallCorePicture(int xpos, int ypos) {
   Serial.printf("Show 1/4 Pic, ActPicType: %d\n",actPicType);
 #endif
   
-  oled.clearDisplay();
+  oled_cleardisplay();
   switch (actPicType) {
     case XBM:
       x=0;y=0;
@@ -1300,10 +1412,10 @@ void oled_showSmallCorePicture(int xpos, int ypos) {
           b1=logoBin[px+py*DispLineBytes1bpp];                       // Get Data Byte for 8 Pixels
           for (i=0; i<8; i=i+2){
             if (bitRead(b1, i)) {
-              oled.drawPixel(xpos+x, ypos+y, SSD1322_WHITE);         // Draw Pixel if "1"
+              oled.drawPixel(xpos+x, ypos+y, OLED_WHITE);         // Draw Pixel if "1"
             }
             else {
-              oled.drawPixel(xpos+x, ypos+y, SSD1322_BLACK);         // Clear Pixel if "0"
+              oled.drawPixel(xpos+x, ypos+y, OLED_BLACK);         // Clear Pixel if "0"
             }
 #ifdef XDEBUG
             Serial.printf("X: %d Y: %d\n",x,y);
@@ -1317,7 +1429,7 @@ void oled_showSmallCorePicture(int xpos, int ypos) {
         x=0;
         y++;
       }
-      oled.display();  
+      oled_display();  
     break;
     case GSC:
       x=0;y=0;
@@ -1339,7 +1451,7 @@ void oled_showSmallCorePicture(int xpos, int ypos) {
       x=0;
       y++;
       }
-      oled.display();  
+      oled_display();  
     break;
     case NONE:
       oled_showcorename();
@@ -1355,7 +1467,7 @@ void oled_showSystemHardware(void) {
   int hwinfo=0;
 
 #ifdef XDEBUG
-  Serial.println("Called Command CMDSHSYSHW");
+  Serial.println(F("Called Command CMDSHSYSHW"));
 #endif
 
 #ifdef USE_ESP32DEV                        // TTGO-T8 & d.ti Board
@@ -1374,60 +1486,65 @@ void oled_showSystemHardware(void) {
   hwinfo=4;
 #endif
 
-  oled.clearDisplay();
-  u8g2.setFont(u8g2_font_luBS10_tf);
-  u8g2.setCursor(0,10);
-  u8g2.print("SysInfo");
+  oled_cleardisplay();
+  //u8g2.setFont(u8g2_font_luBS10_tf);
+  oled_setfont(2);
+  
+  oled_setcursor(0,10);
+  oled_printtext("SysInfo");
 
-  u8g2.setFont(u8g2_font_luBS08_tf);
-  u8g2.setCursor(0,25);
-  u8g2.print("FW Version: " BuildVersion);
+  //u8g2.setFont(u8g2_font_luBS08_tf);
+  oled_setfont(1);
+  oled_setcursor(0,25);
+  oled_printtext("FW Version: " BuildVersion);
 
-  u8g2.setCursor(0,35);
-  u8g2.print("Board Type: ");
+  oled_setcursor(0,35);
+  oled_printtext("Board Type: ");
   
   switch (hwinfo) {
     case 0:
-      u8g2.print("Unknown");                 // Unknow Hardware
+      oled_printtext("Unknown");                 // Unknow Hardware
     break;
     case 1:
-      u8g2.print("ESP32-DEV");               // ESP32-DEV, TTGO, DTI-Board
+      oled_printtext("ESP32-DEV");               // ESP32-DEV, TTGO, DTI-Board
       if (dtiv>=11) {
-        u8g2.printf(", d.ti v%.1f", (float)dtiv/10);
+        //u8g2.printf(", d.ti v%.1f", (float)dtiv/10);
+        oled_printftext(", d.ti v%.1f", (float)dtiv/10);
       }
     break;
     case 2:
-      u8g2.print("WEMOS LOLIN32");           // Wemos,Lolin,DevKit_V4
+      oled_printtext("WEMOS LOLIN32");           // Wemos,Lolin,DevKit_V4
     break;
     case 3:
-      u8g2.print("NodeMCU 1.0");             // ESP8266
+      oled_printtext("NodeMCU 1.0");             // ESP8266
     break;
     case 4:
-      u8g2.print("ESP32S3-DEV");             // ESP32S3
+      oled_printtext("ESP32S3-DEV");             // ESP32S3
       if (dtiv>=11) {
-        u8g2.printf(", d.ti v%.1f", (float)dtiv/10);
+        //u8g2.printf(", d.ti v%.1f", (float)dtiv/10);
+        oled_printftext(", d.ti v%.1f", (float)dtiv/10);
       }
     break;
     default:
-      u8g2.print("Other");                   // Everything else
+      oled_printtext("Other");                   // Everything else
     break;
   }
 
-  u8g2.setCursor(0,50);
-  u8g2.print("Board Options: ");
-  u8g2.setCursor(0,60);
+  oled_setcursor(0,50);
+  oled_printtext("Board Options: ");
+  oled_setcursor(0,60);
   if (dtiv>=11) {
-    if (hasMIC) u8g2.print("MIC");
-    if (hasPCA) u8g2.print(",PCA");
-    if (hasLED) u8g2.print(",LED");
-    if (hasRGBLED) u8g2.print(",RGB");
-    if (hasBUZZER) u8g2.print(",BUZ");
+    if (hasMIC) oled_printtext("MIC");
+    if (hasPCA) oled_printtext(",PCA");
+    if (hasLED) oled_printtext(",LED");
+    if (hasRGBLED) oled_printtext(",RGB");
+    if (hasBUZZER) oled_printtext(",BUZ");
   }
   else {
-    u8g2.print("None");
+    oled_printtext("None");
   }
 
-  oled.display();  
+  oled_display();  
 }
 
 // --------------------------------------------------------------
@@ -1456,34 +1573,34 @@ void oled_sendHardwareInfo(void) {
 
   switch (hwinfo) {
     case 0:
-      Serial.println("HWNONEXXX;" BuildVersion ";");              // No known Hardware in use
+      Serial.println(F("HWNONEXXX;" BuildVersion ";"));              // No known Hardware in use
     break;
     case 1:
-      Serial.println("HWESP32DE;" BuildVersion ";");              // ESP32-DEV, TTGO, DTI-Board
+      Serial.println(F("HWESP32DE;" BuildVersion ";"));              // ESP32-DEV, TTGO, DTI-Board
     break;
     case 2:
-      Serial.println("HWLOLIN32;" BuildVersion ";");              // Wemos,Lolin,DevKit_V4
+      Serial.println(F("HWLOLIN32;" BuildVersion ";"));              // Wemos,Lolin,DevKit_V4
     break;
     case 3:
-      Serial.println("HWESP8266;" BuildVersion ";");              // ESP8266
+      Serial.println(F("HWESP8266;" BuildVersion ";"));              // ESP8266
     break;
     case 4:
-      Serial.println("HWESP32S3;" BuildVersion ";");              // ESP32-S3
+      Serial.println(F("HWESP32S3;" BuildVersion ";"));              // ESP32-S3
     break;
     default:
-      Serial.println("HWNONEXXX;" BuildVersion ";");              // Default
+      Serial.println(F("HWNONEXXX;" BuildVersion ";"));              // Default
     break;
   }
 }
 
 
 // --------------------------------------------------------------
-// ---- Draw Pictures with an height of 64 Pixel centerred ------
+// ---- Draw Pictures with an height of 64 Pixel centered -------
 // --------------------------------------------------------------
 void oled_drawlogo64h(uint16_t w, const uint8_t *bitmap) {
-  oled.clearDisplay();
-  oled.drawXBitmap(DispWidth/2-w/2, 0, bitmap, w, DispHeight, SSD1322_WHITE);
-  oled.display();
+  oled_cleardisplay();
+  oled.drawXBitmap(DispWidth/2-w/2, 0, bitmap, w, DispHeight, OLED_WHITE);
+  oled_display();
 } // end oled_drawlogo64h
 
 
@@ -1492,12 +1609,12 @@ void oled_drawlogo64h(uint16_t w, const uint8_t *bitmap) {
 // --------------------------------------------------------------
 void oled_showcorename() {
 #ifdef XDEBUG
-  Serial.println("Called Command CMDSNAM");
+  Serial.println(F("Called Command CMDSNAM"));
 #endif
 
   //ScreenSaverTimer=0;                        // Reset ScreenSaver-Timer
   //ScreenSaverLogoTimer=0;                    // Reset ScreenSaverLogo-Timer
-  oled.setContrast(contrast);
+  oled_setcontrast(contrast);
   oled_showcenterredtext(actCorename,9);
 }
 
@@ -1507,10 +1624,12 @@ void oled_showcorename() {
 // --------------------------------------------------------------
 void oled_displayoff(void) {
 #ifdef XDEBUG
-  Serial.println("Called Command CMDDOFF");
+  Serial.println(F("Called Command CMDDOFF"));
 #endif
-  
+
+#ifdef XSSD1322
   oled.displayOff();                 // Switch Display off
+#endif
 }
 
 
@@ -1519,10 +1638,12 @@ void oled_displayoff(void) {
 // --------------------------------------------------------------
 void oled_displayon(void) {
 #ifdef XDEBUG
-  Serial.println("Called Command CMDDOFF");
+  Serial.println(F("Called Command CMDDOFF"));
 #endif
   
+#ifdef XSSD1322
   oled.displayOn();                 // Switch Display on
+#endif
 }
 
 
@@ -1531,10 +1652,10 @@ void oled_displayon(void) {
 // --------------------------------------------------------------
 void oled_updatedisplay(void) {
 #ifdef XDEBUG
-  Serial.println("Called Command CMDDUPD");
+  Serial.println(F("Called Command CMDDUPD"));
 #endif
 
-  oled.display();                 // Update Display Content
+  oled_display();                 // Update Display Content
 }
 
 
@@ -1544,7 +1665,7 @@ void oled_updatedisplay(void) {
 void oled_readnsetcontrast(void) {
   String cT="";
 #ifdef XDEBUG
-  Serial.println("Called Command CMDCON");
+  Serial.println(F("Called Command CMDCON"));
 #endif
   
   cT=newCommand.substring(7);
@@ -1553,7 +1674,7 @@ void oled_readnsetcontrast(void) {
   Serial.printf("\nReceived Text: %s\n", (char*)cT.c_str());
 #endif
   contrast=cT.toInt();                   // Convert Value
-  oled.setContrast(contrast);            // Read and Set contrast  
+  oled_setcontrast(contrast);            // Read and Set contrast  
 }
 
 // --------------------------------------------------------------
@@ -1562,29 +1683,31 @@ void oled_readnsetcontrast(void) {
 void oled_showperror(void) {
   String actText="Parameter Error";
   
-  oled.clearDisplay();
-  u8g2.setFont(u8g2_font_luBS14_tf);
-  u8g2.setCursor(DispWidth/2-(u8g2.getUTF8Width(actText.c_str())/2), 20);
-  //u8g2.setCursor(5, 20);
-  u8g2.print(actText);
+  oled_cleardisplay();
+  //u8g2.setFont(u8g2_font_luBS14_tf);
+  oled_setfont(3);
+  oled_setcursor(DispWidth/2-(oled_getUTF8Width(actText.c_str())/2), 20);
+  //oled_setcursor(5, 20);
+  oled_printtext(actText);
   
-  u8g2.setFont(u8g2_font_luBS10_tf);
-  u8g2.setCursor(DispWidth/2-(u8g2.getUTF8Width(newCommand.c_str())/2), 40);
-  //u8g2.setCursor(5, 40);
-  u8g2.print(newCommand);
-  oled.display();
+  //u8g2.setFont(u8g2_font_luBS10_tf);
+  oled_setfont(2);
+  oled_setcursor(DispWidth/2-(oled_getUTF8Width(newCommand.c_str())/2), 40);
+  //oled_setcursor(5, 40);
+  oled_printtext(newCommand);
+  oled_display();
 }
 
 // --------------------------------------------------------------
-// ------------------ Show centerred Text -----------------------
+// ------------------ Show centered Text ------------------------
 // --------------------------------------------------------------
 void oled_showcenterredtext(String text, int font) {
   
-  oled.clearDisplay();
+  oled_cleardisplay();
   oled_setfont(font);
-  u8g2.setCursor(DispWidth/2-(u8g2.getUTF8Width(text.c_str())/2), DispHeight/2 + (u8g2.getFontAscent()/2));
-  u8g2.print(text);
-  oled.display();
+  oled_setcursor(DispWidth/2-(oled_getUTF8Width(text.c_str())/2), DispHeight/2 + (oled_getFontAscent()/2));
+  oled_printtext(text);
+  oled_display();
 }
 
 
@@ -1592,6 +1715,7 @@ void oled_showcenterredtext(String text, int font) {
 // -------------------------- Set Font --------------------------
 // --------------------------------------------------------------
 void oled_setfont(int font) {
+#ifdef XSSD1322
   switch (font) {
     case 0:
       u8g2.setFont(u8g2_font_5x7_mf);             // Transparent 6 Pixel Font
@@ -1631,8 +1755,157 @@ void oled_setfont(int font) {
       u8g2.setFont(u8g2_font_tenfatguys_tr);      // Nice 10 Pixel Font
     break;
   }
+#endif
 }
 
+
+// --------------------------------------------------------------
+// -------------------------- Set Cursor ------------------------
+// --------------------------------------------------------------
+void oled_setcursor(int16_t x, int16_t y) {
+
+#ifdef XSSD1322
+  oled_setcursor(x, y);
+#endif
+
+#ifdef XST7789
+  oled.setCursor(x, y);
+#endif
+}
+
+// --------------------------------------------------------------
+// -------------------------- Set Text Color --------------------
+// --------------------------------------------------------------
+// for fg and for bg colors, give value -1 to not set the color
+void oled_settextcolor(int16_t fg, int16_t bg) {
+
+#ifdef XSSD1322
+  if (fg != -1) {
+    u8g2.setForegroundColor(fg);                           // Set Font Color
+  }
+  if (bg != -1) {
+    u8g2.setBackgroundColor(bg);                           // Set Background Color
+  }
+#endif
+
+#ifdef XST7789
+  oled.setTextColor(fg, bg);
+#endif
+}
+
+// --------------------------------------------------------------
+// -------------------------- Set Contrast ----------------------
+// --------------------------------------------------------------
+void oled_setcontrast(uint8_t c) {
+#ifdef XSSD1322
+  oled_setcontrast(c);
+#endif
+}
+
+// --------------------------------------------------------------
+// -------------------------- Print text on screen --------------
+// --------------------------------------------------------------
+void oled_printtext(String val) {
+#ifdef XSSD1322
+  u8g2.print(val);
+#endif
+
+#ifdef XST7789
+  oled.print(val);
+#endif
+}
+
+void oled_printtext(byte val) {
+#ifdef XSSD1322
+  u8g2.print(val);
+#endif
+
+#ifdef XST7789
+  oled.print(val);
+#endif
+}
+
+void oled_printtext(int val) {
+#ifdef XSSD1322
+  u8g2.print(val);
+#endif
+
+#ifdef XST7789
+  oled.print(val);
+#endif
+}
+
+// --------------------------------------------------------------
+// -------------------------- Printf text on screen -------------
+// --------------------------------------------------------------
+void oled_printftext(String s, float f) {
+#ifdef XSSD1322
+  u8g2.printf(s, f);
+#endif
+
+#ifdef XST7789
+//TODO do better...
+  oled.print(s);
+  oled.print(f);
+#endif
+}
+
+void oled_printftext(String s, int i) {
+#ifdef XSSD1322
+  u8g2.printf(s, fi);
+#endif
+
+#ifdef XST7789
+//TODO do better...
+  oled.print(s);
+  oled.print(i);
+#endif
+}
+
+// --------------------------------------------------------------
+// -------------------------- Get a string's width --------------
+// --------------------------------------------------------------
+int16_t oled_getUTF8Width(const char * s) {
+
+#ifdef XSSD1322
+  return u8g2.getUTF8Width(s);
+#endif
+
+#ifdef XST7789
+//TODO do better...
+  return 0;
+#endif
+}
+
+// --------------------------------------------------------------------------------------------------
+// -------------------------- Get the height of the character 'A' in the current font ---------------
+// --------------------------------------------------------------------------------------------------
+int8_t oled_getFontAscent(void) {
+
+#ifdef XSSD1322
+  return oled_getFontAscent();
+#endif
+
+#ifdef XST7789
+//TODO do better...
+  return 0;
+#endif
+}
+
+// -----------------------------------------------------------------------
+// -------------------------- Draw a 4-Bit Grayscale Picture--------------
+// -----------------------------------------------------------------------
+void oled_drawgreyscale(const uint8_t bitmap[]) {
+
+#ifdef XSSD1322
+  oled.draw4bppBitmap(bitmap);
+#endif
+
+#ifdef XST7789
+//TODO do a grayscale drawing...
+  oled.drawXBitmap(0, 0, bitmap, DispWidth, DispHeight, OLED_WHITE);
+#endif
+}
 
 // --------------------------------------------------------------
 // ----------- Command Read and Set Rotation --------------------
@@ -1642,7 +1915,7 @@ void oled_readnsetrotation(void) {
   int r=0;
   
 #ifdef XDEBUG
-  Serial.println("Called Command CMDROT");
+  Serial.println(F("Called Command CMDROT"));
 #endif
   
   rT=newCommand.substring(7);
@@ -1677,7 +1950,7 @@ void oled_clswithtransition() {
   bool pError=false;
 
 #ifdef XDEBUG
-  Serial.println("Called Command CMDCLST");
+  Serial.println(F("Called Command CMDCLST"));
 #endif
 
   TextIn = newCommand.substring(8);         // Get Command Text from "newCommand"
@@ -1737,12 +2010,12 @@ void oled_clswithtransition() {
 // --------------------------------------------------------------
 void oled_showpic(void) {
 #ifdef XDEBUG
-  Serial.println("Called Command CMDSPIC");
+  Serial.println(F("Called Command CMDSPIC"));
 #endif
 
   ScreenSaverTimer=0;                        // Reset ScreenSaver-Timer
   ScreenSaverLogoTimer=0;                    // Reset ScreenSaverLogo-Timer
-  oled.setContrast(contrast);
+  oled_setcontrast(contrast);
 
   if (newCommand.length()>7) {                       // Parameter added?
     tEffect=newCommand.substring(8).toInt();         // Get Effect from Command String (is set to 0 if not convertable)
@@ -1762,7 +2035,7 @@ int oled_readlogo() {
   int d1=0;
   
 #ifdef XDEBUG
-  Serial.println("Called Command CMDCOR");
+  Serial.println(F("Called Command CMDCOR"));
 #endif
 
   TextIn=newCommand.substring(7);                    // Get Command String
@@ -1796,15 +2069,19 @@ int oled_readlogo() {
   else if (bytesReadCount == 8192) actPicType = GSC;
   else actPicType = 0;
 
+#ifdef XDEBUG
+    Serial.printf("\nactPicType: %d, bytesReadCount T:%i \n", actPicType, bytesReadCount);
+#endif
+
 #ifdef USE_NODEMCU
   yield();
 #endif
 
 #ifdef XDEBUG
-  oled.clearDisplay();
+  oled_cleardisplay();
   oled.setCursor(0,0);
   oled.print(bytesReadCount);
-  oled.display();
+  oled_display();
   delay(1000);
 #endif
 
@@ -1813,7 +2090,7 @@ int oled_readlogo() {
     oled_drawlogo64h(transfererror_width, transfererror_pic);
     oled.setCursor(0,0);
     oled.print(bytesReadCount);
-    oled.display();
+    oled_display();
     return 0;
   }
   else {
@@ -1840,7 +2117,7 @@ void oled_drawlogo(uint8_t e) {
 #ifdef ESP32X  
   ShowAnimatedScreenSaverNo=random(MinAnimatedScreenSaver, MaxAnimatedScreenSaver+1);
 #endif
-  oled.setContrast(contrast);
+  oled_setcontrast(contrast);
 
   switch (e) {
     case 1:                                  // Left to Right
@@ -1848,7 +2125,7 @@ void oled_drawlogo(uint8_t e) {
         for (y=0; y<DispHeight; y++) {
           oled_drawEightPixelXY(x, y);
         }
-        oled.display();
+        oled_display();
       }
     break;  // 1
 
@@ -1857,7 +2134,7 @@ void oled_drawlogo(uint8_t e) {
         for (x=0; x<DispLineBytes1bpp; x++) {
           oled_drawEightPixelXY(x, y);
         }
-        if (y%2==1) oled.display();
+        if (y%2==1) oled_display();
       }
     break;  // 2
 
@@ -1866,7 +2143,7 @@ void oled_drawlogo(uint8_t e) {
         for (y=0; y<DispHeight; y++) {
           oled_drawEightPixelXY(x, y);
         }
-        oled.display();
+        oled_display();
       }
     break;  // 3
 
@@ -1875,7 +2152,7 @@ void oled_drawlogo(uint8_t e) {
         for (x=0; x<DispLineBytes1bpp; x++) {
           oled_drawEightPixelXY(x, y);
         }
-        if (y%2==0) oled.display();
+        if (y%2==0) oled_display();
       }
     break;  // 4
 
@@ -1890,7 +2167,7 @@ void oled_drawlogo(uint8_t e) {
           }
           oled_drawEightPixelXY(x2, y);
         }  // end for y
-        oled.display();
+        oled_display();
       }  // end for x
     break;  // 5
 
@@ -1905,7 +2182,7 @@ void oled_drawlogo(uint8_t e) {
           }
           oled_drawEightPixelXY(x2, y);
         }  // end for y
-        oled.display();
+        oled_display();
       }  // end for x
     break;  // 6
 
@@ -1921,7 +2198,7 @@ void oled_drawlogo(uint8_t e) {
             }
             oled_drawEightPixelXY(x2, y+w*16);
           }  // end for y
-          oled.display();
+          oled_display();
         }  // end for x
       }
     break;  // 7
@@ -1932,28 +2209,28 @@ void oled_drawlogo(uint8_t e) {
         for (y=0; y<DispHeight/2; y++) {
           oled_drawEightPixelXY(x, y);
         }  // end for y
-        oled.display();
+        oled_display();
       }  // end for x
       // Part 2 Bottom Right
       for (x=DispLineBytes1bpp/2; x<DispLineBytes1bpp; x++) {
         for (y=DispHeight/2; y<DispHeight; y++) {
           oled_drawEightPixelXY(x, y);
         }  // end for y
-        oled.display();
+        oled_display();
       }  // end for x
       // Part 3 Top Right
       for (x=DispLineBytes1bpp-1; x>=DispLineBytes1bpp/2; x--) {
         for (y=0; y<DispHeight/2; y++) {
           oled_drawEightPixelXY(x, y);
         }  // end for y
-        oled.display();
+        oled_display();
       }  // end for x
       // Part 4 Bottom Left
       for (x=DispLineBytes1bpp/2-1; x>=0; x--) {
         for (y=DispHeight/2; y<DispHeight; y++) {
           oled_drawEightPixelXY(x, y);
         }  // end for y
-        oled.display();
+        oled_display();
       }  // end for x
     break; // 8
     
@@ -1966,20 +2243,20 @@ void oled_drawlogo(uint8_t e) {
         }
         // Different speed
         if (w<=250) {
-          if ((w % 5)==0) oled.display();
+          if ((w % 5)==0) oled_display();
         }
         if (w>250 && w<=500) {
-          if ((w % 10)==0) oled.display();
+          if ((w % 10)==0) oled_display();
         }
         if (w>500) {
-          if ((w % 20)==0) oled.display();
+          if ((w % 20)==0) oled_display();
         }
       }
       // Finally overwrite the Screen with full Size Picture
-      oled.clearDisplay();
-      if (actPicType==XBM) oled.drawXBitmap(0, 0, logoBin, DispWidth, DispHeight, SSD1322_WHITE);
-      if (actPicType==GSC) oled.draw4bppBitmap(logoBin);
-      oled.display();
+      oled_cleardisplay();
+      if (actPicType==XBM) oled.drawXBitmap(0, 0, logoBin, DispWidth, DispHeight, OLED_WHITE);
+      if (actPicType==GSC) oled_drawgreyscale(logoBin);
+      oled_display();
     break;  // 9
 
     case 10:                                       // Left to Right Diagonally
@@ -1998,7 +2275,7 @@ void oled_drawlogo(uint8_t e) {
 #endif
           }
         }  // end for y
-        oled.display();
+        oled_display();
       }  // end for x
     break;  // 10
     
@@ -2009,7 +2286,7 @@ void oled_drawlogo(uint8_t e) {
             oled_drawEightPixelXY(x+x2-(DispLineBytes1bpp-1), y, x2, y);
           }
         }
-        oled.display();
+        oled_display();
       }
     break;  // 11
 
@@ -2020,7 +2297,7 @@ void oled_drawlogo(uint8_t e) {
             oled_drawEightPixelXY(x, y+y2-(DispHeight-1), x, y2);
           }
         }
-        if (y%2==1) oled.display();
+        if (y%2==1) oled_display();
       }
     break;  // 12
 
@@ -2031,7 +2308,7 @@ void oled_drawlogo(uint8_t e) {
             oled_drawEightPixelXY(x+x2, y, x2, y);
           }
         }
-        oled.display();
+        oled_display();
       }
     break;  // 13
 
@@ -2042,7 +2319,7 @@ void oled_drawlogo(uint8_t e) {
             oled_drawEightPixelXY(x, y+y2, x, y2); 
           }
         }
-        if (y%2==0) oled.display();
+        if (y%2==0) oled_display();
       }
     break;  // 14
 
@@ -2052,7 +2329,7 @@ void oled_drawlogo(uint8_t e) {
           oled_drawEightPixelXY(x, y);
           oled_drawEightPixelXY(x, DispHeight-y-1);
         }
-      oled.display();
+      oled_display();
       }
     break;  // 15
 
@@ -2062,7 +2339,7 @@ void oled_drawlogo(uint8_t e) {
           oled_drawEightPixelXY(x, y);
           oled_drawEightPixelXY(DispLineBytes1bpp-x-1, y);
         }
-        oled.display();
+        oled_display();
       }
     break;  // 16
 
@@ -2072,7 +2349,7 @@ void oled_drawlogo(uint8_t e) {
           oled_drawEightPixelXY(x, DispHeight/2-1-y);
           oled_drawEightPixelXY(x, DispHeight/2+y);
         }
-      oled.display();
+      oled_display();
       }
     break;  // 17
 
@@ -2082,7 +2359,7 @@ void oled_drawlogo(uint8_t e) {
           oled_drawEightPixelXY(DispLineBytes1bpp/2-1-x, y);
           oled_drawEightPixelXY(DispLineBytes1bpp/2+x, y);
         }
-        oled.display();
+        oled_display();
       }
     break;  // 18
     
@@ -2093,7 +2370,7 @@ void oled_drawlogo(uint8_t e) {
             oled_drawEightPixelXY(x, y);
           }
         }
-        oled.display();
+        oled_display();
       }
     break;  // 19
 
@@ -2102,27 +2379,27 @@ void oled_drawlogo(uint8_t e) {
         for (x=DispLineBytes1bpp-DispHeight/16;x<DispLineBytes1bpp;x++) {
           oled_drawEightPixelXY(x, y);
         }
-      //oled.display();  
-      if (y%2==1) oled.display();             // Update only each uneven (second) round = faster 
+      //oled_display();  
+      if (y%2==1) oled_display();             // Update only each uneven (second) round = faster 
       }
       for (x=DispLineBytes1bpp-1;x>=DispHeight/16;x--) {
         for (y=DispHeight/2; y<DispHeight;y++) {
           oled_drawEightPixelXY(x, y);
         }
-      oled.display();  
+      oled_display();  
       }
       for (y=DispHeight-1; y>=DispHeight/2;y--) {
         for (x=0;x<DispHeight/16;x++) {
           oled_drawEightPixelXY(x, y);
         }
-      //oled.display();  
-      if (y%2==0) oled.display();             // Update only each even (second) round = faster 
+      //oled_display();  
+      if (y%2==0) oled_display();             // Update only each even (second) round = faster 
       }
       for (x=0;x<DispLineBytes1bpp-DispHeight/16;x++) {
         for (y=0; y<DispHeight/2;y++) {
           oled_drawEightPixelXY(x, y);
         }
-      oled.display();  
+      oled_display();  
       }
     break;  // 20
 
@@ -2132,8 +2409,8 @@ void oled_drawlogo(uint8_t e) {
           if ((x>=0 && x<DispLineBytes1bpp/4*1) || (x>=DispLineBytes1bpp/2 && x<DispLineBytes1bpp/4*3)) oled_drawEightPixelXY(x, y);
           if ((x>=DispLineBytes1bpp/4*1 && x<DispLineBytes1bpp/2) || (x>=DispLineBytes1bpp/4*3 && x<DispLineBytes1bpp)) oled_drawEightPixelXY(x, DispHeight-y-1);
         }
-        //oled.display();
-        if (y%2==1) oled.display();
+        //oled_display();
+        if (y%2==1) oled_display();
       }
     break;
     
@@ -2148,8 +2425,8 @@ void oled_drawlogo(uint8_t e) {
         for (y=0; y<DispHeight; y++) {
           oled_drawEightPixelXY(vArray[x*2], y);
           oled_drawEightPixelXY(vArray[x*2+1], y);
-          //if (y%8==7) oled.display();       // Waterfall Speed
-          if (y%16==15) oled.display();       // Waterfall Speed
+          //if (y%8==7) oled_display();       // Waterfall Speed
+          if (y%16==15) oled_display();       // Waterfall Speed
         }
       }
     break;  // 22
@@ -2193,7 +2470,7 @@ void oled_drawlogo(uint8_t e) {
             oled_drawEightPixelXY(x, y);
           }
         }
-        oled.display();
+        oled_display();
         delay(100);                           // Delay
       }
     break;  // 23
@@ -2201,27 +2478,27 @@ void oled_drawlogo(uint8_t e) {
     default:
       if (actPicType == XBM) {
 #ifdef XDEBUG
-        oled.clearDisplay();
+        oled_cleardisplay();
         oled.setCursor(0,0);
         oled.print("drawXBitmap");
-        oled.display();
+        oled_display();
         delay(1000);
 #endif
-        oled.clearDisplay();
-        oled.drawXBitmap(0, 0, logoBin, DispWidth, DispHeight, SSD1322_WHITE);
-        oled.display();
+        oled_cleardisplay();
+        oled.drawXBitmap(0, 0, logoBin, DispWidth, DispHeight, OLED_WHITE);
+        oled_display();
       }
       if (actPicType == GSC) {
 #ifdef XDEBUG
-        oled.clearDisplay();
+        oled_cleardisplay();
         oled.setCursor(0,0);
         oled.print("draw4bppBitmap");
-        oled.display();
+        oled_display();
         delay(1000);
 #endif
-        oled.clearDisplay();
-        oled.draw4bppBitmap(logoBin);
-        oled.display();
+        oled_cleardisplay();
+        oled_drawgreyscale(logoBin);
+        oled_display();
       }    
     break;
   } // end switch (e)
@@ -2243,10 +2520,10 @@ void oled_drawEightPixelXY(int x, int y, int dx, int dy) {
       b=logoBin[dx+dy*DispLineBytes1bpp];                // Get Data Byte for 8 Pixels
       for (i=0; i<8; i++){
         if (bitRead(b, i)) {
-          oled.drawPixel(x*8+i,y,SSD1322_WHITE);         // Draw Pixel if "1"
+          oled.drawPixel(x*8+i,y,OLED_WHITE);         // Draw Pixel if "1"
         }
         else {
-          oled.drawPixel(x*8+i,y,SSD1322_BLACK);         // Clear Pixel if "0"
+          oled.drawPixel(x*8+i,y,OLED_BLACK);         // Clear Pixel if "0"
         }
       }
     break;
@@ -2276,7 +2553,7 @@ void oled_readnwritetext(void) {
   bool pError=false;
   
 #ifdef XDEBUG
-  Serial.println("Called Command CMDTEXT");
+  Serial.println(F("Called Command CMDTEXT"));
 #endif
  
   TextIn = newCommand.substring(7);            // Get Command Text from "newCommand"
@@ -2316,7 +2593,7 @@ void oled_readnwritetext(void) {
     pError=true;
   }
 
-  if (f>=100) {                  // Do not run oled.display() after printing
+  if (f>=100) {                  // Do not run oled_display() after printing
     bufferMode=true;
     f=f-100;
   }
@@ -2336,13 +2613,15 @@ void oled_readnwritetext(void) {
   
   if (!pError) {
     // Write or Clear Text
-    u8g2.setForegroundColor(c);                           // Set Font Color
-    u8g2.setBackgroundColor(b);                           // Set Background Color
-    u8g2.setCursor(x,y);                                  // Set Cursor Position
-    u8g2.print(TextOut);                                  // Write Text to Buffer
-    if (!bufferMode) oled.display();                      // Update Screen only if not "Clear Mode" (Font>100)
-    u8g2.setForegroundColor(SSD1322_WHITE);               // Set Color back
-    u8g2.setBackgroundColor(SSD1322_BLACK);
+    /*u8g2.setForegroundColor(c);                           // Set Font Color
+    u8g2.setBackgroundColor(b);                           // Set Background Color*/
+    oled_settextcolor(c, b);
+    oled_setcursor(x,y);                                  // Set Cursor Position
+    oled_printtext(TextOut);                                  // Write Text to Buffer
+    if (!bufferMode) oled_display();                      // Update Screen only if not "Clear Mode" (Font>100)
+    /*u8g2.setForegroundColor(SSD1322_WHITE);               // Set Color back
+    u8g2.setBackgroundColor(SSD1322_BLACK);*/
+    oled_settextcolor(OLED_WHITE, OLED_BLACK);
   }
   else { 
     oled_showperror();
@@ -2360,7 +2639,7 @@ void oled_readndrawgeo(void) {
   bool bufferMode=false;
   
 #ifdef XDEBUG
-  Serial.println("Called Command CMDGEO");
+  Serial.println(F("Called Command CMDGEO"));
 #endif
 
   TextIn = newCommand.substring(7);             // Get Command Text from "newCommand"
@@ -2411,7 +2690,7 @@ void oled_readndrawgeo(void) {
     pError=true;
   }
   
-  if (g>100) {                  // Do not run oled.display() after drawing
+  if (g>100) {                  // Do not run oled_display() after drawing
     bufferMode=true;
     g=g-100;
   }
@@ -2453,7 +2732,7 @@ void oled_readndrawgeo(void) {
         oled.fillCircle(128,32,8,8);
         break;
     }
-    if (!bufferMode) oled.display();                       // Update Screen only if not Buffer Mode (Geo>100)
+    if (!bufferMode) oled_display();                       // Update Screen only if not Buffer Mode (Geo>100)
   }
   else { 
     oled_showperror();
@@ -2470,7 +2749,7 @@ void oled_readndrawgeo(void) {
 void oled_showtemperature() {
   String myTemp="";
 #ifdef XDEBUG
-  Serial.println("Called Command CMDSHTEMP");
+  Serial.println(F("Called Command CMDSHTEMP"));
 #endif
   if (hasMIC) {
     myTemp=String(tSensor.getTemp())+"\xb0"+"C";
@@ -2478,12 +2757,13 @@ void oled_showtemperature() {
   else {
     myTemp="NA";
   }
-  oled.clearDisplay();
+  oled_cleardisplay();
   oled.drawRoundRect(0,0,256,64,4,10);
-  u8g2.setFont(u8g2_font_luBS24_tf);
-  u8g2.setCursor(DispWidth/2-(u8g2.getUTF8Width(myTemp.c_str())/2), DispHeight/2 + (u8g2.getFontAscent()/2));
-  u8g2.print(myTemp);
-  oled.display();
+  //u8g2.setFont(u8g2_font_luBS24_tf);
+  oled_setfont(5);
+  oled_setcursor(DispWidth/2-(oled_getUTF8Width(myTemp.c_str())/2), DispHeight/2 + (oled_getFontAscent()/2));
+  oled_printtext(myTemp);
+  oled_display();
 }
 
 
@@ -2494,7 +2774,7 @@ void oled_readnsetuserled(void) {
   String xT="";
   int x;
 #ifdef XDEBUG
-  Serial.println("Called Command CMDULED");
+  Serial.println(F("Called Command CMDULED"));
 #endif
   
   xT=newCommand.substring(8);
@@ -2532,7 +2812,7 @@ void oled_readnsetuserled(void) {
 void oled_settempzone(void) {
   String xZ="";
 #ifdef XDEBUG
-  Serial.println("Called Command CMDTZONE");
+  Serial.println(F("Called Command CMDTZONE"));
 #endif
   
   //xZ=newCommand.substring(9);
@@ -2555,7 +2835,7 @@ void oled_readnsetpowerled(void) {
   String xT="";
   int x;
 #ifdef XDEBUG
-  Serial.println("Called Command CMDPLED");
+  Serial.println(F("Called Command CMDPLED"));
 #endif
   //xT=newCommand.substring(8);
   xT=newCommand.substring(newCommand.indexOf(',')+1);
@@ -2585,7 +2865,7 @@ void oled_playnote(void) {
   bool pError=false;
   
 #ifdef XDEBUG
-  Serial.println("Called Command CMDPNOTE");
+  Serial.println(F("Called Command CMDPNOTE"));
 #endif  
   
   TextIn=newCommand.substring(newCommand.indexOf(','));  // Find the first "," after the command
@@ -2690,7 +2970,7 @@ void oled_playtone(void) {
   bool pError=false;
   
 #ifdef XDEBUG
-  Serial.println("Called Command CMDPTONE");
+  Serial.println(F("Called Command CMDPTONE"));
 #endif  
 
   TextIn=newCommand.substring(newCommand.indexOf(','));  // Find the first "," after the command
@@ -2742,7 +3022,7 @@ void oled_playtone(void) {
       else {
         oled_showperror();      
 #ifdef XDEBUG
-        Serial.printf("Parameter Error!\n");
+        Serial.println(F("Parameter Error!\n"));
 #endif  
       }
     } while (d3 != -1 && !pError);                         // Repeat as long as a third "," is found
@@ -2753,7 +3033,7 @@ void oled_playtone(void) {
   else {
     oled_showcenterredtext("No Buzzer!",3);
 #ifdef XDEBUG
-    Serial.printf("No Buzzer!\n");
+    Serial.println(F("No Buzzer!\n"));
 #endif  
   }
 }
@@ -2766,7 +3046,7 @@ void oled_readnsetedtiv(void) {
   int v;
 
 #ifdef XDEBUG
-  Serial.println("Called Command CMDWRDTIV");
+  Serial.println(F("Called Command CMDWRDTIV"));
 #endif
 
   vT=newCommand.substring(newCommand.indexOf(',')+1);
@@ -2780,17 +3060,19 @@ void oled_readnsetedtiv(void) {
   if (v<0) v=0;                             // Check Value
   if (v>255) v=255;                         // Check Value
   
-  oled.clearDisplay();
-  u8g2.setFont(u8g2_font_luBS08_tf);
+  oled_cleardisplay();
+  //u8g2.setFont(u8g2_font_luBS08_tf);
+  oled_setfont(1);
   prefs.begin("tty2oled", false);             // Preferences Handling, open Namespace
   prefs.putUChar("dtiv", v);                  // Write Value to Preferences Namespace
   prefs.end();                                // Close the Preferences 
 #ifdef XDEBUG
   Serial.printf("Write Value %i to Preferences DTIV.\n",v);
 #endif
-  u8g2.setCursor(0,25);
-  u8g2.printf("Write Value %i to Preferences DTIV.\n",v);
-  oled.display();
+  oled_setcursor(0,25);
+  //u8g2.printf("Write Value %i to Preferences DTIV.\n",v);
+  oled_printftext("Write Value %i to Preferences DTIV.\n", v);
+  oled_display();
 }
 
 #endif  // ----------- d.ti functions endif ESP32DEV---------------
@@ -2807,14 +3089,14 @@ void oled_drawScreenSaverToaster() {
   int16_t x, y;
   bool resort = false;     // By default, don't re-sort depths
 
-  oled.clearDisplay();
+  oled_cleardisplay();
   for(i=0; i<TOAST_FLYERS; i++) { // For each flyer...
     // First draw each item...
     f = (flyer[i].frame == 255) ? 4 : (flyer[i].frame++ & 3); // Frame #
     x = flyer[i].x / TOAST_MPIX;
     y = flyer[i].y / TOAST_MPIX;
-    oled.drawBitmap(x, y, tmask[f], 32, 32, SSD1322_BLACK);
-    oled.drawBitmap(x, y, timg[f], 32, 32, SSD1322_WHITE);
+    oled.drawBitmap(x, y, tmask[f], 32, 32, OLED_BLACK);
+    oled.drawBitmap(x, y, timg[f], 32, 32, OLED_WHITE);
 
     // Update position..
     flyer[i].x -= flyer[i].depth * 2; // Update position based on depth,
@@ -2836,7 +3118,7 @@ void oled_drawScreenSaverToaster() {
       resort = true;
     }
   }
-  oled.display();
+  oled_display();
   delay(TOAST_DELAY);
 }
 
@@ -2858,7 +3140,7 @@ void oled_drawScreenSaverStarField() {
   int x,y,s,c;
   double k;
   
-   oled.clearDisplay();
+   oled_cleardisplay();
   // Iterate through the stars reducing the z co-ordinate in order to move the Star closer.
   for (int i = 0; i < starCount; ++i) {
     stars[i][2] -= 0.19;
@@ -2885,7 +3167,7 @@ void oled_drawScreenSaverStarField() {
       //oled.fillRect(x, y, s, s, 15);
     }
   }
-  oled.display();
+  oled_display();
 }
 
 // --------------------------------------------------
@@ -2895,19 +3177,22 @@ void oled_showtime(void) {
   String actTime=rtc.getTime("%H:%M");                    // Get Hrs and Secs
 
 #ifdef XDEBUG
-  Serial.println("Called Command CMDSHTIME");
+  Serial.println(F("Called Command CMDSHTIME"));
 #endif  
 
-  oled.clearDisplay();
-  u8g2.setForegroundColor(15);                            // Set Font Color
-  u8g2.setBackgroundColor(0);                             // Set Background Color
-  u8g2.setFont(u8g2_font_5x7_mf);                         // Set Font
-  u8g2.setCursor(0,8);                                    // Set Cursor Position
-  u8g2.print("Show Time");                                     // Write Text
-  u8g2.setFont(u8g2_font_7Segments_26x42_mn);             // Set Font
-  u8g2.setCursor(55,58);                                  // Set Cursor Position
-  u8g2.print(actTime);                                    // Write Text
-  oled.display();                                         // Output Text
+  oled_cleardisplay();
+  /*u8g2.setForegroundColor(15);                            // Set Font Color
+  u8g2.setBackgroundColor(0);                             // Set Background Color*/
+  oled_settextcolor(15, 0);
+  //u8g2.setFont(u8g2_font_5x7_mf);                         // Set Font
+  oled_setfont(0);
+  oled_setcursor(0,8);                                    // Set Cursor Position
+  oled_printtext("Show Time");                                     // Write Text
+  //u8g2.setFont(u8g2_font_7Segments_26x42_mn);             // Set Font
+  oled_setfont(8);
+  oled_setcursor(55,58);                                  // Set Cursor Position
+  oled_printtext(actTime);                                    // Write Text
+  oled_display();                                         // Output Text
 }
 
 #endif // ESP32
