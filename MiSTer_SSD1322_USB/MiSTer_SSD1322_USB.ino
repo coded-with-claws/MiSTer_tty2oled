@@ -41,7 +41,7 @@
 */
 
 // Set Version
-#define BuildVersion "240908"                    // "T" for Testing
+#define BuildVersion "240907"                    // "T" for Testing
 
 // Include Libraries
 #include <Arduino.h>
@@ -418,7 +418,8 @@ void oled_setcursor(int16_t, int16_t);
 void oled_settextcolor(int16_t, int16_t);
 void oled_setcontrast(uint8_t);
 void oled_printtext(String);
-void oled_printftext(String);
+void oled_printftext(String, float);
+void oled_printftext(String, int);
 int16_t oled_getUTF8Width(const char *);
 int8_t oled_getFontAscent(void);
 void oled_drawgreyscale(const uint8_t);
