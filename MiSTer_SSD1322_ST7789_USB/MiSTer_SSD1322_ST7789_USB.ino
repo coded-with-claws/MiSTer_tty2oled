@@ -41,7 +41,7 @@
 */
 
 // Set Version
-#define BuildVersion "240907"                    // "T" for Testing
+#define BuildVersion "240917"                    // "T" for Testing
 
 // Include Libraries
 #include <Arduino.h>
@@ -198,14 +198,16 @@
   #define TILT_PIN 32
   
 // ST7789 TFT module connections
-/* Arduino Nano
-#define OLED_CS    10  // define chip select pin
-#define OLED_DC     9  // define data/command pin
-#define OLED_RESET    8  // define reset pin, or set to -1 and connect to Arduino RESET pin*/
+/* ESP32
 #define OLED_CS    26  // define chip select pin
 #define OLED_DC    25  // define data/command pin
-#define OLED_RESET   27  // define reset pin, or set to -1 and connect to Arduino RESET pin
-
+#define OLED_RESET   27  // define reset pin, or set to -1 and connect to Arduino RESET pin*/
+// Arduino Nano ESP32
+/*#define OLED_MOSI    38
+#define OLED_SCLK    48*/
+#define OLED_CS    10 // 21  // define chip select pin
+#define OLED_DC    9 // 18  // define data/command pin
+#define OLED_RESET   8 // 17  // define reset pin, or set to -1 and connect to Arduino RESET pin
 #endif
 
 // ESP8266-Board (NodeMCU v3)
@@ -236,6 +238,7 @@
 #if defined(XST7789)
   // Initialize Adafruit ST7789 TFT library
   Adafruit_ST7789 oled = Adafruit_ST7789(OLED_CS, OLED_DC, OLED_RESET);
+  //Adafruit_ST7789 oled = Adafruit_ST7789(OLED_CS, OLED_DC, OLED_MOSI, OLED_SCLK, OLED_RESET);
   #define OLED_WHITE ST77XX_WHITE
   #define OLED_BLACK ST77XX_BLACK
 #endif
