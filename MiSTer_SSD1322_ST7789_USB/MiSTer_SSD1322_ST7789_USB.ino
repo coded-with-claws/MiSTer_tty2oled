@@ -425,6 +425,7 @@ void oled_printftext(String, float);
 void oled_printftext(String, int);
 int16_t oled_getUTF8Width(const char *);
 int8_t oled_getFontAscent(void);
+void oled_drawmonochrome(const uint8_t);
 void oled_drawgreyscale(const uint8_t);
 
 // Info about overloading found here
@@ -1897,6 +1898,20 @@ int8_t oled_getFontAscent(void) {
 }
 
 // -----------------------------------------------------------------------
+// -------------------------- Draw a 1-Bit Monochrome Picture--------------
+// -----------------------------------------------------------------------
+void oled_drawmonochrome(const uint8_t bitmap[]) {
+
+#ifdef XSSD1322
+  oled.drawXBitmap(0, 0, bitmap, DispWidth, DispHeight, OLED_WHITE);
+#endif
+
+#ifdef XST7789
+  oled.drawXBitmap(0, 0, bitmap, DispWidth, DispHeight, OLED_WHITE);
+#endif
+}
+
+// -----------------------------------------------------------------------
 // -------------------------- Draw a 4-Bit Grayscale Picture--------------
 // -----------------------------------------------------------------------
 void oled_drawgreyscale(const uint8_t bitmap[]) {
@@ -2258,7 +2273,7 @@ void oled_drawlogo(uint8_t e) {
       }
       // Finally overwrite the Screen with full Size Picture
       oled_cleardisplay();
-      if (actPicType==XBM) oled.drawXBitmap(0, 0, logoBin, DispWidth, DispHeight, OLED_WHITE);
+      if (actPicType==XBM) oled_drawmonochrome(logoBin);
       if (actPicType==GSC) oled_drawgreyscale(logoBin);
       oled_display();
     break;  // 9
