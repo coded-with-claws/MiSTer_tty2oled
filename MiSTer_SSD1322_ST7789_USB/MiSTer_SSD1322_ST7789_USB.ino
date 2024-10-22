@@ -479,6 +479,7 @@ void setup(void) {
   // Init ST7789 display 240x240 pixel
   oled.init(240, 240, SPI_MODE0);
   oled_cleardisplay();
+  oled.setRotation(0);
   oled.setCursor(0, 0);
   oled.setTextColor(ST77XX_WHITE);
   oled.setTextWrap(true);
@@ -645,7 +646,7 @@ void setup(void) {
 #endif // ESP32X
 
 // Tilt Sensor Rotation via Tilt-Sensor Pin
-  RotationDebouncer.attach(TILT_PIN,INPUT_PULLUP);         // Attach the debouncer to a pin with INPUT mode
+/*  RotationDebouncer.attach(TILT_PIN,INPUT_PULLUP);         // Attach the debouncer to a pin with INPUT mode
   RotationDebouncer.interval(DEBOUNCE_TIME);               // Use a debounce interval of 25 milliseconds
   delay(10);                                               // Short Delay
   if (digitalRead(TILT_PIN)) {                             // Set Startup Rotation
@@ -653,7 +654,7 @@ void setup(void) {
  }
   else {                                                   // If Signal = 0 180° Rotation
     oled.setRotation(2);
-  }
+  }*/
 
 // XROTATE Option Rotation
 #ifdef XROTATE
@@ -675,7 +676,7 @@ void loop(void) {
   unsigned long currentMillis = millis();
 
   // Tilt Sensor/Auto-Rotation
-  RotationDebouncer.update();                                     // Update the Bounce instance
+/*  RotationDebouncer.update();                                     // Update the Bounce instance
   if (RotationDebouncer.rose()) {
 #ifdef XDEBUG
     Serial.println(F("Tilt Rose..."));
@@ -699,7 +700,7 @@ void loop(void) {
     else {
       oled_drawlogo(0);
     }
-  }
+  }*/
 
   // Blinker  low--pos--high--neg--low..
   if (currentMillis - previousMillis >= interval) {         // Interval check
