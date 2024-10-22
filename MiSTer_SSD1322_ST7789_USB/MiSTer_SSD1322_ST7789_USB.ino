@@ -241,6 +241,7 @@
   //Adafruit_ST7789 oled = Adafruit_ST7789(OLED_CS, OLED_DC, OLED_MOSI, OLED_SCLK, OLED_RESET);
   #define OLED_WHITE ST77XX_WHITE
   #define OLED_BLACK ST77XX_BLACK
+  #define ST7789_Y_OFFSET 80
 #endif
 
 // Tilt Sensor
@@ -1009,7 +1010,15 @@ void oled_showStartScreen(void) {
   Serial.println(F("Show Startscreen"));
 #endif
   oled_cleardisplay();
+
+#ifdef XSSD1322
   oled.drawXBitmap(82, 0, tty2oled_logo, tty2oled_logo_width, tty2oled_logo_height, OLED_WHITE);
+#endif
+
+#ifdef XST7789
+  oled.drawXBitmap(82, ST7789_Y_OFFSET, tty2oled_logo, tty2oled_logo_width, tty2oled_logo_height, OLED_WHITE);
+#endif
+
   oled_display();
   delay(1000);
   for (int i=0; i<DispWidth; i+=16) {            // Some Animation
@@ -1045,7 +1054,15 @@ void oled_showStartScreen(void) {
   delay(500);
   //u8g2.setFont(u8g2_font_5x7_mf);               // 6 Pixel Font
   oled_setfont(0);
+
+#ifdef XSSD1322
   oled_setcursor(0,63);
+#endif
+
+#ifdef XST7789
+  oled_setcursor(0,ST7789_Y_OFFSET+60);
+#endif
+
   oled_printtext(BuildVersion);
   if (runsTesting) {
     if (hasMIC) oled_printtext("M");
@@ -1604,7 +1621,15 @@ void oled_sendHardwareInfo(void) {
 // --------------------------------------------------------------
 void oled_drawlogo64h(uint16_t w, const uint8_t *bitmap) {
   oled_cleardisplay();
+
+#ifdef XSSD1322
   oled.drawXBitmap(DispWidth/2-w/2, 0, bitmap, w, DispHeight, OLED_WHITE);
+#endif
+
+#ifdef XST7789
+  oled.drawXBitmap(DispWidth/2-w/2, ST7789_Y_OFFSET, bitmap, w, DispHeight, OLED_WHITE);
+#endif
+
   oled_display();
 } // end oled_drawlogo64h
 
@@ -1907,7 +1932,7 @@ void oled_drawmonochrome(const uint8_t bitmap[]) {
 #endif
 
 #ifdef XST7789
-  oled.drawXBitmap(0, 0, bitmap, DispWidth, DispHeight, OLED_WHITE);
+  oled.drawXBitmap(0, ST7789_Y_OFFSET, bitmap, DispWidth, DispHeight, OLED_WHITE);
 #endif
 }
 
@@ -1922,7 +1947,7 @@ void oled_drawgreyscale(const uint8_t bitmap[]) {
 
 #ifdef XST7789
 //TODO do a grayscale drawing...
-  oled.drawXBitmap(0, 0, bitmap, DispWidth, DispHeight, OLED_WHITE);
+  oled.drawXBitmap(0, ST7789_Y_OFFSET, bitmap, DispWidth, DispHeight, OLED_WHITE);
 #endif
 }
 
@@ -2504,7 +2529,7 @@ void oled_drawlogo(uint8_t e) {
         delay(1000);
 #endif
         oled_cleardisplay();
-        oled.drawXBitmap(0, 0, logoBin, DispWidth, DispHeight, OLED_WHITE);
+        oled_drawmonochrome(logoBin);
         oled_display();
       }
       if (actPicType == GSC) {
