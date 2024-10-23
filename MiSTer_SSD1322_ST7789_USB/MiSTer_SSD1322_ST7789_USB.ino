@@ -1941,13 +1941,19 @@ void oled_drawmonochrome(const uint8_t bitmap[]) {
 // -----------------------------------------------------------------------
 void oled_drawgreyscale(const uint8_t bitmap[]) {
 
+int x, y;
+
 #ifdef XSSD1322
   oled.draw4bppBitmap(bitmap);
 #endif
 
 #ifdef XST7789
-//TODO do a grayscale drawing...
-  oled.drawXBitmap(0, ST7789_Y_OFFSET, bitmap, DispWidth, DispHeight, OLED_WHITE);
+  for (x=0; x<DispLineBytes1bpp; x++) {
+        for (y=0; y<DispHeight; y++) {
+          oled_drawEightPixelXY(x, y);
+        }
+        oled_display();
+      }
 #endif
 }
 
