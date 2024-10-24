@@ -2543,6 +2543,8 @@ void oled_drawlogo(uint8_t e) {
 void oled_drawEightPixelXY(int x, int y, int dx, int dy) {
   unsigned char b;
   int i;
+  uint16_t color;
+  uint8_t gsc, red, green, blue;
   switch (actPicType) {
     case XBM:
       b=logoBin[dx+dy*DispLineBytes1bpp];                // Get Data Byte for 8 Pixels
@@ -2558,8 +2560,35 @@ void oled_drawEightPixelXY(int x, int y, int dx, int dy) {
     case GSC:
       for (i=0; i<4; i++) {
         b=logoBin[(dx*4)+i+dy*DispLineBytes4bpp];        // Get Data Byte for 2 Pixels
-        oled.drawPixel(x*8+i*2+0, y, (0xF0 & b) >> 4);   // Draw Pixel 1, Left Nibble
-        oled.drawPixel(x*8+i*2+1, y, 0x0F & b);          // Draw Pixel 2, Right Nibble
+
+
+#ifdef XSSD1322
+  color = (0xF0 & b) >> 4;
+#endif
+
+#ifdef XST7789
+// convert the greyscale value (4 bits) of Pixel 1 to RGB565 (5 bits for red & blue, 6 bits for green)
+  gsc = (0xF0 & b) >> 4;
+  red = (uint8_t)((gsc * 31) / 16);
+  blue = red;
+  green = (uint8_t)((gsc * 63) / 16);
+  color = (red << 11) | (green << 5) | blue;
+#endif
+        oled.drawPixel(x*8+i*2+0, y, color);   // Draw Pixel 1, Left Nibble
+
+#ifdef XSSD1322
+  color = 0x0F & b;
+#endif
+
+#ifdef XST7789
+// convert the greyscale value (4 bits) of Pixel 2 to RGB565 (5 bits for red & blue, 6 bits for green)
+  gsc = 0x0F & b;
+  red = (uint8_t)((gsc * 31) / 16);
+  blue = red;
+  green = (uint8_t)((gsc * 63) / 16);
+  color = (red << 11) | (green << 5) | blue;
+#endif
+        oled.drawPixel(x*8+i*2+1, y, color);          // Draw Pixel 2, Right Nibble
       }
     break;
   }
