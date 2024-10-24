@@ -41,7 +41,7 @@
 */
 
 // Set Version
-#define BuildVersion "240917"                    // "T" for Testing
+#define BuildVersion "241024"                    // "T" for Testing
 
 // Include Libraries
 #include <Arduino.h>
@@ -65,6 +65,9 @@
 // Screen SSD1322 or ST7789
 //#define XSSD1322
 #define XST7789
+
+// Green mode (only works with ST7789) (logos displayed in green instead of white, for a game boy DMG effect)
+#define GREENDISPLAY
 
 // ---------------------------------------------------------------------------------------------------------------------
 // ---------------------------------- Auto-Board-Config via Arduino IDE Board Selection --------------------------------
@@ -245,6 +248,11 @@
   #define OLED_BLACK ST77XX_BLACK
   #define X_OFFSET 1
   #define Y_OFFSET 80
+#endif
+
+#if defined(XST7789) && defined(GREENDISPLAY)
+  #define OLED_WHITE ST77XX_BLACK
+  #define OLED_BLACK ST77XX_GREEN
 #endif
 
 // Tilt Sensor
@@ -486,7 +494,7 @@ void setup(void) {
   oled_cleardisplay();
   oled.setRotation(0);
   oled.setCursor(0, 0);
-  oled.setTextColor(ST77XX_WHITE);
+  oled.setTextColor(OLED_WHITE);
   oled.setTextWrap(true);
 #endif
 
@@ -1389,7 +1397,7 @@ void oled_cleardisplay(void) {
 #endif
 
 #ifdef XST7789
-  oled.fillScreen(ST77XX_BLACK);
+  oled.fillScreen(OLED_BLACK);
 #endif
 }
 
@@ -1609,6 +1617,7 @@ void oled_sendHardwareInfo(void) {
 // ---- Draw Pictures with an height of 64 Pixel centered -------
 // --------------------------------------------------------------
 void oled_drawlogo64h(uint16_t w, const uint8_t *bitmap) {
+
   oled_cleardisplay();
   oled.drawXBitmap(DispWidth/2-w/2, Y_OFFSET, bitmap, w, DispHeight, OLED_WHITE);
   oled_display();
@@ -2545,6 +2554,7 @@ void oled_drawEightPixelXY(int x, int y, int dx, int dy) {
   int i;
   uint16_t color;
   uint8_t gsc, red, green, blue;
+
   switch (actPicType) {
     case XBM:
       b=logoBin[dx+dy*DispLineBytes1bpp];                // Get Data Byte for 8 Pixels
@@ -2561,7 +2571,6 @@ void oled_drawEightPixelXY(int x, int y, int dx, int dy) {
       for (i=0; i<4; i++) {
         b=logoBin[(dx*4)+i+dy*DispLineBytes4bpp];        // Get Data Byte for 2 Pixels
 
-
 #ifdef XSSD1322
   color = (0xF0 & b) >> 4;
 #endif
@@ -2573,6 +2582,9 @@ void oled_drawEightPixelXY(int x, int y, int dx, int dy) {
   blue = red;
   green = (uint8_t)((gsc * 63) / 16);
   color = (red << 11) | (green << 5) | blue;
+#endif
+#ifdef GREENDISPLAY
+  color = color & 0b0000011111100000;
 #endif
         oled.drawPixel(x*8+i*2+0, y, color);   // Draw Pixel 1, Left Nibble
 
@@ -2587,6 +2599,9 @@ void oled_drawEightPixelXY(int x, int y, int dx, int dy) {
   blue = red;
   green = (uint8_t)((gsc * 63) / 16);
   color = (red << 11) | (green << 5) | blue;
+#endif
+#ifdef GREENDISPLAY
+  color = color & 0b0000011111100000;
 #endif
         oled.drawPixel(x*8+i*2+1, y, color);          // Draw Pixel 2, Right Nibble
       }
