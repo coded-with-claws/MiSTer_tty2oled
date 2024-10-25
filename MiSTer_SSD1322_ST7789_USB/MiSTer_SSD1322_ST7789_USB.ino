@@ -2155,6 +2155,7 @@ void oled_drawlogo(uint8_t e) {
   ShowAnimatedScreenSaverNo=random(MinAnimatedScreenSaver, MaxAnimatedScreenSaver+1);
 #endif
   oled_setcontrast(contrast);
+  oled_cleardisplay(); // clear character glitches (seemingly caused by tapto)
 
   switch (e) {
     case 1:                                  // Left to Right
@@ -2320,7 +2321,7 @@ void oled_drawlogo(uint8_t e) {
       for (x=0; x<DispLineBytes1bpp; x++) {
         for (x2=DispLineBytes1bpp-1-x; x2<DispLineBytes1bpp; x2++) {
           for (y=0; y<DispHeight; y++) {
-            oled_drawEightPixelXY(x+x2-(DispLineBytes1bpp-1), y, x2, y);
+            oled_drawEightPixelXY(x+x2-(DispLineBytes1bpp-1)-X_OFFSET, y+Y_OFFSET, x2, y);
           }
         }
         oled_display();
@@ -2331,7 +2332,7 @@ void oled_drawlogo(uint8_t e) {
       for (y=0; y<DispHeight; y++) {
         for (y2=DispHeight-1-y; y2<DispHeight; y2++) {
           for (x=0; x<DispLineBytes1bpp; x++) {
-            oled_drawEightPixelXY(x, y+y2-(DispHeight-1), x, y2);
+            oled_drawEightPixelXY(x-X_OFFSET, y+y2-(DispHeight-1)+Y_OFFSET, x, y2);
           }
         }
         if (y%2==1) oled_display();
@@ -2342,7 +2343,7 @@ void oled_drawlogo(uint8_t e) {
       for (x=DispLineBytes1bpp-1; x>=0; x--) {
         for (x2=DispLineBytes1bpp-1-x; x2>=0; x2--) {
           for (y=0; y<DispHeight; y++) {
-            oled_drawEightPixelXY(x+x2, y, x2, y);
+            oled_drawEightPixelXY(x+x2-X_OFFSET, y+Y_OFFSET, x2, y);
           }
         }
         oled_display();
@@ -2353,7 +2354,7 @@ void oled_drawlogo(uint8_t e) {
       for (y=DispHeight-1; y>=0; y--) {
         for (y2=DispHeight-1-y; y2>=0; y2--) {
           for (x=0; x<DispLineBytes1bpp; x++) {
-            oled_drawEightPixelXY(x, y+y2, x, y2); 
+            oled_drawEightPixelXY(x-X_OFFSET, y+y2+Y_OFFSET, x, y2);
           }
         }
         if (y%2==0) oled_display();
