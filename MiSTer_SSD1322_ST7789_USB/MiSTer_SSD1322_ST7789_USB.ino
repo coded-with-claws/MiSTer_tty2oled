@@ -41,7 +41,7 @@
 */
 
 // Set Version
-#define BuildVersion "241024"                    // "T" for Testing
+#define BuildVersion "241026"                    // "T" for Testing
 
 // Include Libraries
 #include <Arduino.h>
@@ -1021,10 +1021,16 @@ void oled_showStartScreen(void) {
   int x, x2, y, y2, ycap=0;
   uint16_t i;
   uint16_t tty2oled_logo_width1bpp = tty2oled_logo_width / 8;
+  uint8_t buildver_y_offset = 0;
 
 #ifdef XDEBUG
   Serial.println(F("Show Startscreen"));
 #endif
+
+#ifdef XST7789
+  buildver_y_offset = 90;
+#endif
+
   oled_cleardisplay();
 
 #ifdef GBDMGDISPLAY
@@ -1053,7 +1059,6 @@ void oled_showStartScreen(void) {
       }
     }
   }
-
 #endif
 
 #ifdef XSSD1322
@@ -1062,7 +1067,7 @@ void oled_showStartScreen(void) {
   delay(1000);
 #endif
   for (int i=0; i<DispWidth; i+=16) {            // Some Animation
-    oled.fillRect(i,55,16,8,color);
+    oled.fillRect(i,55+Y_OFFSET,16,8,color);
     color++;
     oled_display();
 #ifdef USE_ESP32XDEV
@@ -1074,7 +1079,7 @@ void oled_showStartScreen(void) {
     delay(20);
   }
   for (int i=0; i<DispWidth; i+=16) {            // Remove Animation Line
-    oled.fillRect(i,55,16,8,OLED_BLACK);
+    oled.fillRect(i,55+Y_OFFSET,16,8,OLED_BLACK);
     oled_display();
 #ifdef USE_ESP32XDEV
     if (dtiv>=12) {                              // Let the RGB LED light up
@@ -1095,7 +1100,7 @@ void oled_showStartScreen(void) {
   //u8g2.setFont(u8g2_font_5x7_mf);               // 6 Pixel Font
   oled_setfont(0);
 
-  oled_setcursor(0,Y_OFFSET+63);
+  oled_setcursor(0,63+Y_OFFSET+buildver_y_offset);
 
   oled_printtext(BuildVersion);
   if (runsTesting) {
