@@ -2192,7 +2192,12 @@ void oled_drawlogo(uint8_t e) {
   ShowAnimatedScreenSaverNo=random(MinAnimatedScreenSaver, MaxAnimatedScreenSaver+1);
 #endif
   oled_setcontrast(contrast);
+
+#ifdef XST7789
   oled_cleardisplay(); // clear character glitches (seemingly caused by tapto)
+  // Display "playing" logo on top
+  oled.drawXBitmap(37, 10, playing_logo, playing_logo_width, playing_logo_height, OLED_WHITE);
+#endif
 
   switch (e) {
     case 1:                                  // Left to Right
@@ -2328,7 +2333,9 @@ void oled_drawlogo(uint8_t e) {
         }
       }
       // Finally overwrite the Screen with full Size Picture
+#ifdef XSSD1322
       oled_cleardisplay();
+#endif
       if (actPicType==XBM) oled_drawmonochrome(logoBin);
       if (actPicType==GSC) oled_drawgreyscale(logoBin);
       oled_display();
@@ -2559,7 +2566,9 @@ void oled_drawlogo(uint8_t e) {
         oled_display();
         delay(1000);
 #endif
+#ifdef XSSD1322
         oled_cleardisplay();
+#endif
         oled_drawmonochrome(logoBin);
         oled_display();
       }
@@ -2571,7 +2580,9 @@ void oled_drawlogo(uint8_t e) {
         oled_display();
         delay(1000);
 #endif
+#ifdef XSSD1322
         oled_cleardisplay();
+#endif
         oled_drawgreyscale(logoBin);
         oled_display();
       }    
