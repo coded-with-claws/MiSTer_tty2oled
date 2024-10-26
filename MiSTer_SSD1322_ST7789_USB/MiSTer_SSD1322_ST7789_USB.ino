@@ -1,8 +1,8 @@
 /*
   By Venice
   Get CORENAME from MiSTer via USB-Serial-TTY Device and show CORENAME related text, Pictures or Logos
-  Using forked Adafruit SSD1327 Library https://github.com/adafruit/Adafruit_SSD1327 for the SSD1322
-  Using Adafruit_ST7789 Library for the ST7789 240x240
+  Using forked Adafruit SSD1327 Library https://github.com/adafruit/Adafruit_SSD1327 for the SSD1322 256x64 pixels
+  Using Adafruit_ST7789 Library for the ST7789 240x240 pixels
 
   -- G R A Y S C A L E  E D I T I O N --
 
@@ -66,8 +66,10 @@
 //#define XSSD1322
 #define XST7789
 
-// Green mode (only works with ST7789) (logos displayed in green instead of white, for a game boy DMG effect)
-#define GREENDISPLAY
+// "Game boy DMG"-like display
+// - Green mode - only works with ST7789 (logos are displayed in green instead of white, for a game boy DMG effect)
+// - tty2oled logo displayed sliding top to center of screen when booting (like Nintendo's logo when booting a game boy DMG)
+#define GBDMGDISPLAY
 
 // ---------------------------------------------------------------------------------------------------------------------
 // ---------------------------------- Auto-Board-Config via Arduino IDE Board Selection --------------------------------
@@ -250,7 +252,7 @@
   #define Y_OFFSET 80
 #endif
 
-#if defined(XST7789) && defined(GREENDISPLAY)
+#if defined(XST7789) && defined(GBDMGDISPLAY)
   #define OLED_WHITE ST77XX_BLACK
   #define OLED_BLACK ST77XX_GREEN
 #endif
@@ -508,7 +510,7 @@ void setup(void) {
   //logoBin = (uint8_t *) malloc(logoBytes4bpp);             // Create Picture Buffer, better than permanent create (malloc) and destroy (free)
 
 #if defined(XST7789)
-//TODO: do better...
+// We keep SSD1322 dimensions because those are calculations which will be adapted to the ST7789 screen
   DispWidth = 256;
   DispHeight = 64;
   DispLineBytes1bpp = DispWidth / 8;
@@ -1016,14 +1018,49 @@ void loop(void) {
 // --------------------------------------------------------------
 void oled_showStartScreen(void) {
   uint8_t color = 0;
+  int x, x2, y, y2, ycap=0;
+  uint16_t i;
+  uint16_t tty2oled_logo_width1bpp = tty2oled_logo_width / 8;
 
 #ifdef XDEBUG
   Serial.println(F("Show Startscreen"));
 #endif
   oled_cleardisplay();
+
+#ifdef GBDMGDISPLAY
+  // Display the tty2oled_logo descending top to center
+
+  for (i = 0; i < 690; i++) {
+    logoBin[i] = tty2oled_logo[i];
+  }
+  actPicType = XBM;
+
+  for (y=0; y<tty2oled_logo_height+80; y++) {
+    if (y<tty2oled_logo_height) ycap=y; else ycap=tty2oled_logo_height-1;
+
+    for (y2=tty2oled_logo_height-1-ycap; y2<tty2oled_logo_height; y2++) {
+      for (x=0; x<tty2oled_logo_width1bpp; x++) {
+        if (y%2==1) oled_drawEightPixelXY(x+10, y+y2-(tty2oled_logo_height-1), x, y2, tty2oled_logo_width1bpp);
+      }
+    }
+
+    // clean the above line of old pixels
+    if (y>=tty2oled_logo_height) {
+      for (x2=0; x2<tty2oled_logo_width1bpp; x2++) {
+        for (i=0; i<8; i++){
+          oled.drawPixel(80+x2*8+i,y-tty2oled_logo_height,OLED_BLACK);         // Erase Pixel
+        }
+      }
+    }
+  }
+
+#endif
+
+#ifdef XSSD1322
   oled.drawXBitmap(82, Y_OFFSET, tty2oled_logo, tty2oled_logo_width, tty2oled_logo_height, OLED_WHITE);
   oled_display();
   delay(1000);
+#endif
   for (int i=0; i<DispWidth; i+=16) {            // Some Animation
     oled.fillRect(i,55,16,8,color);
     color++;
@@ -2540,17 +2577,19 @@ void oled_drawlogo(uint8_t e) {
       }    
     break;
   } // end switch (e)
+
 }  // end sd2oled_drawlogo
 
 
 // --------------- Draw 8 Pixel to Display Buffer ----------------------
 // x,y: Data Coordinates of the Pixels on the Display
 // dx,dy: Data Coordinates of the Pixels in the Array
+// img_displinebytes1bpp: Number of bytes 1bpp for image's width (of which pixels must be displayed)
 // Normaly x=dx and y=dy but for the slide effects it's different.
 // 8 Pixels are written, Data Byte(s) are taken from Array
 // Display Positions are calculated from x,y and Type of Pic (XBM/GSX)
 // ---------------------------------------------------------------------
-void oled_drawEightPixelXY(int x, int y, int dx, int dy) {
+void oled_drawEightPixelXY(int x, int y, int dx, int dy, uint16_t img_displinebytes1bpp) {
   unsigned char b;
   int i;
   uint16_t color;
@@ -2558,7 +2597,7 @@ void oled_drawEightPixelXY(int x, int y, int dx, int dy) {
 
   switch (actPicType) {
     case XBM:
-      b=logoBin[dx+dy*DispLineBytes1bpp];                // Get Data Byte for 8 Pixels
+      b=logoBin[dx+dy*img_displinebytes1bpp];                // Get Data Byte for 8 Pixels
       for (i=0; i<8; i++){
         if (bitRead(b, i)) {
           oled.drawPixel(x*8+i,y,OLED_WHITE);         // Draw Pixel if "1"
@@ -2573,36 +2612,36 @@ void oled_drawEightPixelXY(int x, int y, int dx, int dy) {
         b=logoBin[(dx*4)+i+dy*DispLineBytes4bpp];        // Get Data Byte for 2 Pixels
 
 #ifdef XSSD1322
-  color = (0xF0 & b) >> 4;
+        color = (0xF0 & b) >> 4;
 #endif
 
 #ifdef XST7789
 // convert the greyscale value (4 bits) of Pixel 1 to RGB565 (5 bits for red & blue, 6 bits for green)
-  gsc = (0xF0 & b) >> 4;
-  red = (uint8_t)((gsc * 31) / 16);
-  blue = red;
-  green = (uint8_t)((gsc * 63) / 16);
-  color = (red << 11) | (green << 5) | blue;
+        gsc = (0xF0 & b) >> 4;
+        red = (uint8_t)((gsc * 31) / 16);
+        blue = red;
+        green = (uint8_t)((gsc * 63) / 16);
+        color = (red << 11) | (green << 5) | blue;
 #endif
-#ifdef GREENDISPLAY
-  color = color & 0b0000011111100000;
+#ifdef GBDMGDISPLAY
+        color = color & 0b0000011111100000;
 #endif
         oled.drawPixel(x*8+i*2+0, y, color);   // Draw Pixel 1, Left Nibble
 
 #ifdef XSSD1322
-  color = 0x0F & b;
+        color = 0x0F & b;
 #endif
 
 #ifdef XST7789
 // convert the greyscale value (4 bits) of Pixel 2 to RGB565 (5 bits for red & blue, 6 bits for green)
-  gsc = 0x0F & b;
-  red = (uint8_t)((gsc * 31) / 16);
-  blue = red;
-  green = (uint8_t)((gsc * 63) / 16);
-  color = (red << 11) | (green << 5) | blue;
+        gsc = 0x0F & b;
+        red = (uint8_t)((gsc * 31) / 16);
+        blue = red;
+        green = (uint8_t)((gsc * 63) / 16);
+        color = (red << 11) | (green << 5) | blue;
 #endif
-#ifdef GREENDISPLAY
-  color = color & 0b0000011111100000;
+#ifdef GBDMGDISPLAY
+        color = color & 0b0000011111100000;
 #endif
         oled.drawPixel(x*8+i*2+1, y, color);          // Draw Pixel 2, Right Nibble
       }
@@ -2613,6 +2652,10 @@ void oled_drawEightPixelXY(int x, int y, int dx, int dy) {
 #endif
 }
 
+// Override function without supplying image's width, taking DispLineBytes1bpp by default
+void oled_drawEightPixelXY(int x, int y, int dx, int dy) {
+  oled_drawEightPixelXY(x, y, dx, dy, DispLineBytes1bpp);
+}
 
 // ----------------------------------------------------------------------
 // ----------------------- Read and Write Text --------------------------
