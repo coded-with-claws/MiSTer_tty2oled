@@ -2199,9 +2199,13 @@ void oled_drawlogo(uint8_t e) {
   oled_setcontrast(contrast);
 
 #ifdef XST7789
+  // Visual layout before core's logo
   oled_cleardisplay(); // clear character glitches (seemingly caused by tapto)
   // Display "playing" logo on top
   oled.drawXBitmap(37, 10, playing_logo, playing_logo_width, playing_logo_height, OLED_WHITE);
+  // Display MiSTer & tty2oled logos on bottom
+  oled.drawXBitmap(10, 200, mister_logo32, mister_logo32_width, mister_logo32_height, OLED_WHITE);
+  oled.drawXBitmap(145, 200, tty2oled_logo32, tty2oled_logo32_width, tty2oled_logo32_height, OLED_WHITE);
 #endif
 
   switch (e) {
@@ -2588,13 +2592,6 @@ void oled_drawlogo(uint8_t e) {
       }    
     break;
   } // end switch (e)
-
-#ifdef XST7789
-  // Display MiSTer & tty2oled logos on bottom
-  oled.drawXBitmap(10, 200, mister_logo32, mister_logo32_width, mister_logo32_height, OLED_WHITE);
-  oled.drawXBitmap(145, 200, tty2oled_logo32, tty2oled_logo32_width, tty2oled_logo32_height, OLED_WHITE);
-  oled_display();
-#endif
 
 }  // end sd2oled_drawlogo
 
