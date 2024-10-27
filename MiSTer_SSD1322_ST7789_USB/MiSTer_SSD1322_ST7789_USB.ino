@@ -2381,10 +2381,9 @@ void oled_drawlogo(uint8_t e) {
       for (y=0; y<DispHeight; y++) {
         for (y2=DispHeight-1-y; y2<DispHeight; y2++) {
           for (x=0; x<DispLineBytes1bpp; x++) {
-            oled_drawEightPixelXY(x-X_OFFSET, y+y2-(DispHeight-1)+Y_OFFSET, x, y2);
+            if (y%2==1) oled_drawEightPixelXY(x-X_OFFSET, y+y2-(DispHeight-1)+Y_OFFSET, x, y2);
           }
         }
-        if (y%2==1) oled_display();
       }
     break;  // 12
 
@@ -2403,10 +2402,9 @@ void oled_drawlogo(uint8_t e) {
       for (y=DispHeight-1; y>=0; y--) {
         for (y2=DispHeight-1-y; y2>=0; y2--) {
           for (x=0; x<DispLineBytes1bpp; x++) {
-            oled_drawEightPixelXY(x-X_OFFSET, y+y2+Y_OFFSET, x, y2);
+            if (y%2==0) oled_drawEightPixelXY(x-X_OFFSET, y+y2+Y_OFFSET, x, y2);
           }
         }
-        if (y%2==0) oled_display();
       }
     break;  // 14
 
@@ -2465,8 +2463,7 @@ void oled_drawlogo(uint8_t e) {
       for (y=0; y<DispHeight/2;y++) {
         for (x=DispLineBytes1bpp-DispHeight/16;x<DispLineBytes1bpp;x++) {
           oled_drawEightPixelXY(x, y);
-        }
-      //oled_display();  
+        }  
       if (y%2==1) oled_display();             // Update only each uneven (second) round = faster 
       }
       for (x=DispLineBytes1bpp-1;x>=DispHeight/16;x--) {
@@ -2478,8 +2475,7 @@ void oled_drawlogo(uint8_t e) {
       for (y=DispHeight-1; y>=DispHeight/2;y--) {
         for (x=0;x<DispHeight/16;x++) {
           oled_drawEightPixelXY(x, y);
-        }
-      //oled_display();  
+        }  
       if (y%2==0) oled_display();             // Update only each even (second) round = faster 
       }
       for (x=0;x<DispLineBytes1bpp-DispHeight/16;x++) {
@@ -2496,7 +2492,6 @@ void oled_drawlogo(uint8_t e) {
           if ((x>=0 && x<DispLineBytes1bpp/4*1) || (x>=DispLineBytes1bpp/2 && x<DispLineBytes1bpp/4*3)) oled_drawEightPixelXY(x, y);
           if ((x>=DispLineBytes1bpp/4*1 && x<DispLineBytes1bpp/2) || (x>=DispLineBytes1bpp/4*3 && x<DispLineBytes1bpp)) oled_drawEightPixelXY(x, DispHeight-y-1);
         }
-        //oled_display();
         if (y%2==1) oled_display();
       }
     break;
