@@ -1061,13 +1061,14 @@ void oled_showStartScreen(void) {
   }
 #endif
 
-#ifdef XSSD1322
+#if !defined(GBDMGDISPLAY)
   oled.drawXBitmap(82, Y_OFFSET, tty2oled_logo, tty2oled_logo_width, tty2oled_logo_height, OLED_WHITE);
   oled_display();
   delay(1000);
 #endif
+
   for (int i=0; i<DispWidth; i+=16) {            // Some Animation
-    oled.fillRect(i,55+Y_OFFSET,16,8,color);
+    oled.fillRect(i,55+Y_OFFSET,16,8,get_rgb565_color_from_gsc(color));
     color++;
     oled_display();
 #ifdef USE_ESP32XDEV
@@ -2608,7 +2609,6 @@ void oled_drawEightPixelXY(int x, int y, int dx, int dy, uint16_t img_displineby
   unsigned char b;
   int i;
   uint16_t color;
-  uint8_t gsc, red, green, blue;
 
   switch (actPicType) {
     case XBM:
@@ -2632,15 +2632,9 @@ void oled_drawEightPixelXY(int x, int y, int dx, int dy, uint16_t img_displineby
 
 #ifdef XST7789
 // convert the greyscale value (4 bits) of Pixel 1 to RGB565 (5 bits for red & blue, 6 bits for green)
-        gsc = (0xF0 & b) >> 4;
-        red = (uint8_t)((gsc * 31) / 16);
-        blue = red;
-        green = (uint8_t)((gsc * 63) / 16);
-        color = (red << 11) | (green << 5) | blue;
+        color = get_rgb565_color_from_gsc((0xF0 & b) >> 4);
 #endif
-#ifdef GBDMGDISPLAY
-        color = color & 0b0000011111100000;
-#endif
+
         oled.drawPixel(x*8+i*2+0, y, color);   // Draw Pixel 1, Left Nibble
 
 #ifdef XSSD1322
@@ -2649,15 +2643,9 @@ void oled_drawEightPixelXY(int x, int y, int dx, int dy, uint16_t img_displineby
 
 #ifdef XST7789
 // convert the greyscale value (4 bits) of Pixel 2 to RGB565 (5 bits for red & blue, 6 bits for green)
-        gsc = 0x0F & b;
-        red = (uint8_t)((gsc * 31) / 16);
-        blue = red;
-        green = (uint8_t)((gsc * 63) / 16);
-        color = (red << 11) | (green << 5) | blue;
+        color = get_rgb565_color_from_gsc(0x0F & b);
 #endif
-#ifdef GBDMGDISPLAY
-        color = color & 0b0000011111100000;
-#endif
+
         oled.drawPixel(x*8+i*2+1, y, color);          // Draw Pixel 2, Right Nibble
       }
     break;
@@ -2665,6 +2653,32 @@ void oled_drawEightPixelXY(int x, int y, int dx, int dy, uint16_t img_displineby
 #ifdef USE_NODEMCU
   yield();
 #endif
+}
+
+// ------------------------------------------------------------------------------------------
+// ----------------------- Convert the greyscale value (4 bits) of a Pixel ------------------
+// ----------------------- to RGB565 (5 bits for red & blue, 6 bits for green) --------------
+// ------------------------------------------------------------------------------------------
+uint16_t get_rgb565_color_from_gsc(uint8_t gsc_val)
+{
+  uint16_t rgb_val;
+  uint8_t red, green, blue;
+
+#ifdef XSSD1322
+  rgb_val = gsc_val;
+#endif
+
+#ifdef XST7789
+  red = (uint8_t)((gsc_val * 31) / 16);
+  blue = red;
+  green = (uint8_t)((gsc_val * 63) / 16);
+  rgb_val = (red << 11) | (green << 5) | blue;
+#endif
+#ifdef GBDMGDISPLAY
+  rgb_val = rgb_val & 0b0000011111100000;
+#endif
+
+ return rgb_val;
 }
 
 // Override function without supplying image's width, taking DispLineBytes1bpp by default
