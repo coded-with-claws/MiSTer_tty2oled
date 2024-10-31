@@ -71,6 +71,9 @@
 // - tty2oled logo displayed sliding top to center of screen when booting (like Nintendo's logo when booting a game boy DMG)
 #define GBDMGDISPLAY
 
+// Display or not the TAPTO logo
+#define TAPTOLOGO
+
 // ---------------------------------------------------------------------------------------------------------------------
 // ---------------------------------- Auto-Board-Config via Arduino IDE Board Selection --------------------------------
 // ----------------------------------- Make sure the Manual-Board-Config is not active ---------------------------------
@@ -2203,7 +2206,10 @@ void oled_drawlogo(uint8_t e) {
   // Visual layout before core's logo
   oled_cleardisplay(); // clear character glitches (seemingly caused by tapto)
   // Display "playing" logo on top
-  oled.drawXBitmap(37, 10, playing_logo, playing_logo_width, playing_logo_height, OLED_WHITE);
+  oled.drawXBitmap(37, 17, playing_logo, playing_logo_width, playing_logo_height, OLED_WHITE);
+#ifdef TAPTOLOGO
+  oled.drawXBitmap(214, 0, tapto_logo, tapto_logo_width, tapto_logo_height, OLED_WHITE);
+#endif
   // Display MiSTer & tty2oled logos on bottom
   oled.drawXBitmap(10, 200, mister_logo32, mister_logo32_width, mister_logo32_height, OLED_WHITE);
   oled.drawXBitmap(145, 200, tty2oled_logo32, tty2oled_logo32_width, tty2oled_logo32_height, OLED_WHITE);
