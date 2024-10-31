@@ -252,7 +252,7 @@
   #define OLED_WHITE ST77XX_WHITE
   #define OLED_BLACK ST77XX_BLACK
   #define X_OFFSET 1
-  #define Y_OFFSET 80
+  #define Y_OFFSET 88
 #endif
 
 #if defined(XST7789) && defined(GBDMGDISPLAY)
@@ -2206,9 +2206,10 @@ void oled_drawlogo(uint8_t e) {
   // Visual layout before core's logo
   oled_cleardisplay(); // clear character glitches (seemingly caused by tapto)
   // Display "playing" logo on top
-  oled.drawXBitmap(37, 17, playing_logo, playing_logo_width, playing_logo_height, OLED_WHITE);
+  oled.drawXBitmap(37, 20, playing_logo, playing_logo_width, playing_logo_height, OLED_WHITE);
 #ifdef TAPTOLOGO
-  oled.drawXBitmap(214, 0, tapto_logo, tapto_logo_width, tapto_logo_height, OLED_WHITE);
+  // Display tapto logo on top-right
+  oled.drawXBitmap(212, 2, tapto_logo, tapto_logo_width, tapto_logo_height, OLED_WHITE);
 #endif
   // Display MiSTer & tty2oled logos on bottom
   oled.drawXBitmap(10, 200, mister_logo32, mister_logo32_width, mister_logo32_height, OLED_WHITE);
