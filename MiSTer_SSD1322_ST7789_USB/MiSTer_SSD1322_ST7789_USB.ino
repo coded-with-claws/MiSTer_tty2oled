@@ -41,7 +41,7 @@
 */
 
 // Set Version
-#define BuildVersion "241026"                    // "T" for Testing
+#define BuildVersion "241101"                    // "T" for Testing
 
 // Include Libraries
 #include <Arduino.h>
@@ -252,7 +252,11 @@
   #define OLED_WHITE ST77XX_WHITE
   #define OLED_BLACK ST77XX_BLACK
   #define X_OFFSET 1
+#ifdef TAPTOLOGO
+  #define Y_OFFSET 76
+#else
   #define Y_OFFSET 88
+#endif
 #endif
 
 #if defined(XST7789) && defined(GBDMGDISPLAY)
@@ -1031,7 +1035,11 @@ void oled_showStartScreen(void) {
 #endif
 
 #ifdef XST7789
-  buildver_y_offset = 90;
+#ifdef TAPTOLOGO
+  buildver_y_offset = 94;
+#else
+  buildver_y_offset = 82;
+#endif
 #endif
 
   oled_cleardisplay();
@@ -2204,16 +2212,19 @@ void oled_drawlogo(uint8_t e) {
 
 #ifdef XST7789
   // Visual layout before core's logo
-  oled_cleardisplay(); // clear character glitches (seemingly caused by tapto)
+  oled_cleardisplay(); // clear character glitches (caused by tapto when it's in probe mode)
   // Display "playing" logo on top
-  oled.drawXBitmap(37, 20, playing_logo, playing_logo_width, playing_logo_height, OLED_WHITE);
+  oled.drawXBitmap(40, 18, playing_logo, playing_logo_width, playing_logo_height, OLED_WHITE);
 #ifdef TAPTOLOGO
-  // Display tapto logo on top-right
-  oled.drawXBitmap(212, 2, tapto_logo, tapto_logo_width, tapto_logo_height, OLED_WHITE);
-#endif
+  // Display MiSTer & tapto logos on bottom, tty2oled logo just above
+  oled.drawXBitmap(5, 200, mister_logo32, mister_logo32_width, mister_logo32_height, OLED_WHITE);
+  oled.drawXBitmap(80, 156, tty2oled_logo32, tty2oled_logo32_width, tty2oled_logo32_height, OLED_WHITE);
+  oled.drawXBitmap(137, 200, tapto_logo, tapto_logo_width, tapto_logo_height, OLED_WHITE);
+#else
   // Display MiSTer & tty2oled logos on bottom
   oled.drawXBitmap(10, 200, mister_logo32, mister_logo32_width, mister_logo32_height, OLED_WHITE);
   oled.drawXBitmap(145, 200, tty2oled_logo32, tty2oled_logo32_width, tty2oled_logo32_height, OLED_WHITE);
+#endif
 #endif
 
   switch (e) {
