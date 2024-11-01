@@ -63,13 +63,13 @@
 //#define XROTATE
 
 // Screen SSD1322 or ST7789
-//#define XSSD1322
-#define XST7789
+#define XSSD1322
+//#define XST7789
 
 // "Game boy DMG"-like display
 // - Green mode - only works with ST7789 (logos are displayed in green instead of white, for a game boy DMG effect)
 // - tty2oled logo displayed sliding top to center of screen when booting (like Nintendo's logo when booting a game boy DMG)
-#define GBDMGDISPLAY
+//#define GBDMGDISPLAY
 
 // Display or not the TAPTO logo
 #define TAPTOLOGO
@@ -199,24 +199,29 @@
 // WEMOS LOLIN32/Devkit_V4 using VSPI SCLK = 18, MISO = 19, MOSI = 23, SS = 5 and...
 #ifdef USE_LOLIN32
   int cDelay = 60;                 // Command Delay in ms for ACK-Handshake
-  /*
+
+#ifdef XSSD1322
   #define OLED_CS 5
   #define OLED_DC 16
-  #define OLED_RESET 17*/
+  #define OLED_RESET 17
   #define TILT_PIN 32
-  
+#endif // XSSD1322
+
+#ifdef XST7789
 // ST7789 TFT module connections
-/* ESP32
-#define OLED_CS    26  // define chip select pin
-#define OLED_DC    25  // define data/command pin
-#define OLED_RESET   27  // define reset pin, or set to -1 and connect to Arduino RESET pin*/
+/* // ESP32
+  #define OLED_CS    26  // define chip select pin
+  #define OLED_DC    25  // define data/command pin
+  #define OLED_RESET   27  // define reset pin, or set to -1 and connect to Arduino RESET pin*/
 // Arduino Nano ESP32
 /*#define OLED_MOSI    38
-#define OLED_SCLK    48*/
-#define OLED_CS    10 // 21  // define chip select pin
-#define OLED_DC    9 // 18  // define data/command pin
-#define OLED_RESET   8 // 17  // define reset pin, or set to -1 and connect to Arduino RESET pin
-#endif
+  #define OLED_SCLK    48*/
+  #define OLED_CS    10 // 21  // define chip select pin
+  #define OLED_DC    9 // 18  // define data/command pin
+  #define OLED_RESET   8 // 17  // define reset pin, or set to -1 and connect to Arduino RESET pin
+#endif // XST7789
+
+#endif // USE_LOLIN32
 
 // ESP8266-Board (NodeMCU v3)
 #ifdef USE_NODEMCU
@@ -442,8 +447,8 @@ void oled_setcursor(int16_t, int16_t);
 void oled_settextcolor(int16_t, int16_t);
 void oled_setcontrast(uint8_t);
 void oled_printtext(String);
-void oled_printftext(String, float);
-void oled_printftext(String, int);
+void oled_printftext(const char *, float);
+void oled_printftext(const char *, int);
 int16_t oled_getUTF8Width(const char *);
 int8_t oled_getFontAscent(void);
 void oled_drawmonochrome(const uint8_t);
@@ -492,8 +497,6 @@ void setup(void) {
   u8g2.begin(oled); 
   // u8g2.setFontMode(1);                             // Transparent Font Mode, Background is transparent
   u8g2.setFontMode(0);                               // Non-Transparent Font Mode, Background is overwritten (u8g2 default)
-  /*u8g2.setForegroundColor(SSD1322_WHITE);            // apply Adafruit GFX color
-  //u8g2.setBackgroundColor(SSD1322_BLACK);*/
   oled_settextcolor(OLED_WHITE, -1);
 #endif
 
@@ -1039,8 +1042,8 @@ void oled_showStartScreen(void) {
   buildver_y_offset = 94;
 #else
   buildver_y_offset = 82;
-#endif
-#endif
+#endif // TAPTOLOGO
+#endif // XST7789
 
   oled_cleardisplay();
 
@@ -1070,7 +1073,7 @@ void oled_showStartScreen(void) {
       }
     }
   }
-#endif
+#endif // GBDMGDISPLAY
 
 #if !defined(GBDMGDISPLAY)
   oled.drawXBitmap(82, Y_OFFSET, tty2oled_logo, tty2oled_logo_width, tty2oled_logo_height, OLED_WHITE);
@@ -1460,7 +1463,7 @@ void oled_cleardisplay(void) {
 // --------------------------------------------------------------
 void oled_display(void) {
 #ifdef XSSD1322
-  oled_display();
+  oled.display();
 #endif
 }
 
@@ -1839,7 +1842,7 @@ void oled_setfont(int font) {
 void oled_setcursor(int16_t x, int16_t y) {
 
 #ifdef XSSD1322
-  oled_setcursor(x, y);
+  u8g2.setCursor(x, y);
 #endif
 
 #ifdef XST7789
@@ -1872,7 +1875,7 @@ void oled_settextcolor(int16_t fg, int16_t bg) {
 // --------------------------------------------------------------
 void oled_setcontrast(uint8_t c) {
 #ifdef XSSD1322
-  oled_setcontrast(c);
+  oled.setContrast(c);
 #endif
 }
 
@@ -1912,7 +1915,7 @@ void oled_printtext(int val) {
 // --------------------------------------------------------------
 // -------------------------- Printf text on screen -------------
 // --------------------------------------------------------------
-void oled_printftext(String s, float f) {
+void oled_printftext(const char * s, float f) {
 #ifdef XSSD1322
   u8g2.printf(s, f);
 #endif
@@ -1924,9 +1927,9 @@ void oled_printftext(String s, float f) {
 #endif
 }
 
-void oled_printftext(String s, int i) {
+void oled_printftext(const char * s, int i) {
 #ifdef XSSD1322
-  u8g2.printf(s, fi);
+  u8g2.printf(s, i);
 #endif
 
 #ifdef XST7789
@@ -1957,7 +1960,7 @@ int16_t oled_getUTF8Width(const char * s) {
 int8_t oled_getFontAscent(void) {
 
 #ifdef XSSD1322
-  return oled_getFontAscent();
+  return u8g2.getFontAscent();
 #endif
 
 #ifdef XST7789
@@ -2407,6 +2410,7 @@ void oled_drawlogo(uint8_t e) {
             if (y%2==1) oled_drawEightPixelXY(x-X_OFFSET, y+y2-(DispHeight-1)+Y_OFFSET, x, y2);
           }
         }
+        if (y%2==1) oled_display();
       }
     break;  // 12
 
@@ -2428,6 +2432,7 @@ void oled_drawlogo(uint8_t e) {
             if (y%2==0) oled_drawEightPixelXY(x-X_OFFSET, y+y2+Y_OFFSET, x, y2);
           }
         }
+        if (y%2==0) oled_display();
       }
     break;  // 14
 
